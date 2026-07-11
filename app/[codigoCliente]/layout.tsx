@@ -12,11 +12,11 @@ export async function generateMetadata({
   const cliente = getClienteByCodigo(codigoCliente);
 
   if (!cliente) {
-    return { title: "Cliente no encontrado · Evolve BA App Comercial" };
+    return { title: "Cliente no encontrado · P&L Construcción" };
   }
 
   return {
-    title: `${cliente.nombreEmpresa} · Evolve BA App Comercial`,
+    title: `${cliente.nombreEmpresa} · P&L Construcción`,
     icons: { icon: cliente.faviconUrl },
   };
 }

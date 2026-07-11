@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Evolve BA App Comercial",
-  description: "Plataforma de compras Evolve BA App Comercial",
+  title: "P&L Construcción",
+  description: "Control de proyectos, costos y P&L para obras de construcción",
 };
 
 export default function RootLayout({

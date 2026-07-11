@@ -6,217 +6,163 @@ datasource db {
   provider = "postgresql"
 }
 
-model Proveedor {
-  id                    String   @id @default(cuid())
-  razonSocial           String
-  vendedorNombre        String?
-  vendedorCelular       String?
-  vendedorCorreo        String?
-  contactoAdminNombre   String
-  contactoAdminTelefono String?
-  contactoAdminCorreo   String
-  tipoPersona           String
-  rfc                   String   @unique
-  domicilio             String
-  domicilioComercial    String?
-  estado                String   @default("Activo")
-  eliminado             Boolean  @default(false)
-  eliminadoEn           DateTime?
-  clienteId             String
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  usuarioId             String?  @unique
-  usuario               Usuario? @relation(fields: [usuarioId], references: [id])
-
-  licitaciones LicitacionProveedor[]
-  ofertas      OfertaItem[]
-  asignaciones AsignacionMaterial[]
-  ordenes      OrdenCompra[]
-  materiales   ProveedorMaterial[]
-  mensajes     ChatMensaje[]
+enum CostCategory {
+  MATERIALES
+  MANO_OBRA // solo subcontratistas; la MO propia va en TimeEntry
+  SUBCONTRATO
+  EQUIPO
+  INDIRECTOS
+  OTROS
 }
 
-model Producto {
+enum ProjectStatus {
+  PLANEACION
+  EN_CURSO
+  SUSPENDIDA
+  CERRADA
+}
+
+enum EstimateStatus {
+  BORRADOR
+  ENVIADA
+  AUTORIZADA
+  PAGADA
+}
+
+model Project {
+  id             String        @id @default(cuid())
+  clienteId      String
+  code           String
+  name           String
+  clientName     String // cliente final de la obra (no confundir con el tenant)
+  contractAmount Decimal       @db.Decimal(14, 2)
+  advanceAmount  Decimal       @default(0) @db.Decimal(14, 2) // anticipo recibido
+  retentionPct   Decimal       @default(0) @db.Decimal(5, 2) // fondo de garantía %
+  startDate      DateTime
+  endDate        DateTime?
+  status         ProjectStatus @default(PLANEACION)
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime? // soft delete (patrón existente)
+
+  budgetItems BudgetItem[]
+  costs       Cost[]
+  timeEntries TimeEntry[]
+  estimates   Estimate[]
+
+  @@unique([clienteId, code])
+  @@index([clienteId, status])
+}
+
+model BudgetItem {
+  id        String       @id @default(cuid())
+  projectId String
+  parentId  String? // jerarquía: partida → subpartida → concepto
+  code      String // "1.2.3"
+  name      String
+  unit      String? // m3, ton, pza, jornal
+  qty       Decimal      @db.Decimal(14, 4)
+  unitPrice Decimal      @db.Decimal(14, 4)
+  amount    Decimal      @db.Decimal(14, 2) // qty * unitPrice, calculado al guardar
+  category  CostCategory
+  order     Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent      BudgetItem?  @relation("BudgetTree", fields: [parentId], references: [id])
+  children    BudgetItem[] @relation("BudgetTree")
+  costs       Cost[]
+  timeEntries TimeEntry[]
+
+  @@unique([projectId, code])
+  @@index([projectId, category])
+}
+
+model Cost {
+  id           String       @id @default(cuid())
+  projectId    String
+  budgetItemId String? // opcional: costo sin clasificar a partida
+  supplierName String? // texto libre por ahora (no hay módulo de proveedores)
+  date         DateTime
+  category     CostCategory
+  description  String
+  invoiceRef   String? // folio/UUID de factura
+  amount       Decimal      @db.Decimal(14, 2)
+  source       String       @default("MANUAL") // MANUAL | EXCEL_IMPORT
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  budgetItem BudgetItem? @relation(fields: [budgetItemId], references: [id])
+
+  @@index([projectId, date])
+  @@index([projectId, category])
+}
+
+model Employee {
+  id         String    @id @default(cuid())
+  clienteId  String
+  code       String?
+  name       String
+  role       String? // albañil, oficial, cabo, ingeniero
+  hourlyCost Decimal   @db.Decimal(10, 2) // costo/hora INTEGRADO (con carga social)
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  timeEntries TimeEntry[]
+
+  @@index([clienteId, active])
+}
+
+model TimeEntry {
   id           String   @id @default(cuid())
-  codigo       String   @unique
-  nombre       String
-  tipoItem     String
-  familia      String?
-  unidadMedida String
-  descripcion  String?
-  imagenUrl    String?
-  especificacionesTecnicas String?
-  archivosEspecificaciones String? // JSON con lista de URLs cuando conectemos Supabase Storage
-  monedaPredeterminada     String? // TODO: una vez migrada, agregar @default("MXN") vía migración separada (ver nota en el chat)
-  eliminado    Boolean  @default(false)
-  eliminadoEn  DateTime?
-  clienteId    String
+  projectId    String
+  employeeId   String
+  budgetItemId String?
+  date         DateTime @db.Date
+  hours        Decimal  @db.Decimal(6, 2)
+  hourlyCost   Decimal  @db.Decimal(10, 2) // SNAPSHOT de Employee.hourlyCost
+  amount       Decimal  @db.Decimal(14, 2) // hours * hourlyCost
+  notes        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  items       LicitacionItem[]
-  proveedores ProveedorMaterial[]
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee   Employee    @relation(fields: [employeeId], references: [id])
+  budgetItem BudgetItem? @relation(fields: [budgetItemId], references: [id])
+
+  @@unique([projectId, employeeId, date])
+  @@index([projectId, date])
+  @@index([employeeId, date])
 }
 
-model Licitacion {
-  id                      String    @id @default(cuid())
-  numero                  String    @unique
-  jerarquia               String?
-  tipoLicitacion          String?
-  fechaCreacion           DateTime  @default(now())
-  fechaEjecucion          DateTime?
-  fechaFinLicitacion      DateTime?
-  fechaInicioRangoEntrega DateTime?
-  fechaFinRangoEntrega    DateTime?
-  costoObjetivo           Float?
-  importeVenta            Float?
-  tiempoConfirmacionHoras Int       @default(24)
-  duracionRondaMinutos    Int       @default(1440)
-  maxRondas               Int       @default(3)
-  rondaActual             Int       @default(0)
-  inicioRondaActual       DateTime?
-  esperandoDecision       Boolean   @default(false)
-  estado                  String    @default("Borrador")
-  modoLicitacion          String    @default("Proveedores")
-  instrucciones           String?
-  archivosAdjuntos        String?
-  fechaInicioLicitacion   DateTime?
-  fechaFinReal            DateTime?
-  fechaEsperandoDecision  DateTime?
-  fechaCerrada            DateTime?
-  fechaFinalizada         DateTime?
-  fechaCancelada          DateTime?
-  eliminado               Boolean   @default(false)
-  eliminadoEn             DateTime?
-  compradorId             String
-  clienteId               String
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+model Estimate {
+  id           String         @id @default(cuid())
+  projectId    String
+  number       Int
+  periodStart  DateTime       @db.Date
+  periodEnd    DateTime       @db.Date
+  progressPct  Decimal        @db.Decimal(5, 2) // % avance acumulado
+  grossAmount  Decimal        @db.Decimal(14, 2) // avance del periodo (INGRESO)
+  retention    Decimal        @default(0) @db.Decimal(14, 2)
+  advanceAmort Decimal        @default(0) @db.Decimal(14, 2) // amortización de anticipo
+  netAmount    Decimal        @db.Decimal(14, 2) // gross - retention - advanceAmort
+  status       EstimateStatus @default(BORRADOR)
+  authorizedAt DateTime?
+  paidAt       DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
 
-  items                LicitacionItem[]
-  proveedoresInvitados LicitacionProveedor[]
-  asignaciones         AsignacionMaterial[]
-  ordenes              OrdenCompra[]
-  mensajes             ChatMensaje[]
-}
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-model LicitacionItem {
-  id                 String     @id @default(cuid())
-  licitacionId       String
-  licitacion         Licitacion @relation(fields: [licitacionId], references: [id])
-  productoId         String
-  producto           Producto   @relation(fields: [productoId], references: [id])
-  especificacion     String?
-  fechaEntrega       DateTime?
-  cantidadSolicitada Float
-  precioObjetivo     Float?
-  moneda             String     @default("MXN")
-  createdAt          DateTime   @default(now())
-
-  ofertas      OfertaItem[]
-  asignaciones AsignacionMaterial[]
-}
-
-model OfertaItem {
-  id                   String         @id @default(cuid())
-  licitacionItemId     String
-  licitacionItem       LicitacionItem @relation(fields: [licitacionItemId], references: [id])
-  proveedorId          String
-  proveedor            Proveedor      @relation(fields: [proveedorId], references: [id])
-  ronda                Int            @default(1)
-  precioUnitario       Float
-  cantidadDisponible   Float
-  puedeCumplirFecha    Boolean        @default(true)
-  fechaEstimadaEntrega DateTime?
-  moneda               String         @default("MXN")
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
-
-  @@unique([licitacionItemId, proveedorId, ronda])
-}
-
-model LicitacionProveedor {
-  id           String     @id @default(cuid())
-  licitacionId String
-  licitacion   Licitacion @relation(fields: [licitacionId], references: [id])
-  proveedorId  String
-  proveedor    Proveedor  @relation(fields: [proveedorId], references: [id])
-  invitadoEn   DateTime   @default(now())
-}
-
-model AsignacionMaterial {
-  id                      String         @id @default(cuid())
-  licitacionId            String
-  licitacion              Licitacion     @relation(fields: [licitacionId], references: [id])
-  licitacionItemId        String
-  licitacionItem          LicitacionItem @relation(fields: [licitacionItemId], references: [id])
-  proveedorId             String
-  proveedor               Proveedor      @relation(fields: [proveedorId], references: [id])
-  cantidadAsignada        Float
-  precioUnitario          Float
-  ronda                   Int
-  orden                   Int            @default(1)
-  estatusProveedor        String         @default("Pendiente")
-  fechaObjetivo           DateTime?
-  fechaEstimadaProveedor  DateTime?
-  fechaLimiteConfirmacion DateTime?
-  fechaConfirmacion       DateTime?
-  motivoRechazo           String?
-  moneda                  String         @default("MXN")
-  createdAt               DateTime       @default(now())
-  updatedAt               DateTime       @updatedAt
-
-  lineas OrdenCompraLinea[]
-}
-
-model OrdenCompra {
-  id                   String    @id @default(cuid())
-  numero               String    @unique
-  licitacionId         String
-  licitacion           Licitacion @relation(fields: [licitacionId], references: [id])
-  proveedorId          String
-  proveedor            Proveedor  @relation(fields: [proveedorId], references: [id])
-  estado               String    @default("Pendiente")
-  fechaCreacion        DateTime  @default(now())
-  fechaEstimadaEntrega DateTime?
-  clienteId            String
-  updatedAt            DateTime  @updatedAt
-  fechaPendiente       DateTime?
-  fechaEnTransito      DateTime?
-  fechaEntregada       DateTime?
-  fechaRecibida        DateTime?
-  fechaCancelada       DateTime?
-
-  lineas OrdenCompraLinea[]
-}
-
-model ProveedorMaterial {
-  id          String   @id @default(cuid())
-  proveedorId String
-  proveedor   Proveedor @relation(fields: [proveedorId], references: [id])
-  productoId  String
-  producto    Producto  @relation(fields: [productoId], references: [id])
-  familias    String?  // JSON con lista de familias asignadas al proveedor
-  createdAt   DateTime @default(now())
-
-  @@unique([proveedorId, productoId])
-}
-
-model OrdenCompraLinea {
-  id                     String             @id @default(cuid())
-  ordenCompraId          String
-  ordenCompra            OrdenCompra        @relation(fields: [ordenCompraId], references: [id])
-  asignacionId           String             @unique
-  asignacion             AsignacionMaterial @relation(fields: [asignacionId], references: [id])
-  productoNombre         String
-  cantidad               Float
-  unidadMedida           String
-  precioUnitario         Float
-  fechaEntregaObjetivo   DateTime?
-  fechaEstimadaProveedor DateTime?
-  subtotal               Float
-  moneda                 String             @default("MXN")
-  createdAt              DateTime           @default(now())
+  @@unique([projectId, number])
+  @@index([projectId, status])
 }
 
 model Usuario {
@@ -237,7 +183,6 @@ model Usuario {
   emailVerificado  Boolean   @default(false)
   primerAcceso     Boolean   @default(true)
   tipoUsuario      String    @default("comprador")
-  proveedor        Proveedor?
 }
 
 model Rol {
@@ -265,18 +210,6 @@ model RolPermiso {
   eliminar Boolean @default(false)
 
   @@unique([rolId, modulo])
-}
-
-model ChatMensaje {
-  id           String     @id @default(cuid())
-  licitacionId String
-  licitacion   Licitacion @relation(fields: [licitacionId], references: [id])
-  proveedorId  String
-  proveedor    Proveedor  @relation(fields: [proveedorId], references: [id])
-  emisor       String
-  mensaje      String
-  leido        Boolean    @default(false)
-  createdAt    DateTime   @default(now())
 }
 
 model CatalogoValor {

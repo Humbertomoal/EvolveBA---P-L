@@ -22,9 +22,9 @@ export default function LoginForm() {
     <div className="w-full max-w-sm rounded-card border border-border bg-white p-8 shadow-modal">
       <div className="mb-6 flex flex-col items-center text-center">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-semibold text-white">
-          E
+          P
         </div>
-        <h1 className="mt-3 text-lg font-semibold text-zinc-800">Evolve BA</h1>
+        <h1 className="mt-3 text-lg font-semibold text-zinc-800">P&amp;L Construcción</h1>
         <p className="mt-1 text-sm text-zinc-400">Inicia sesión para continuar</p>
       </div>
 

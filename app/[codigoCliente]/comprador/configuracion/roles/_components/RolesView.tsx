@@ -337,7 +337,7 @@ export default function RolesView({
               )}
               {modal.modo === "editar" && modal.rol.esSupervisor && (
                 <p className="mt-0.5 text-xs text-purple-600">
-                  Rol de Supervisor: ve licitaciones de todos los compradores.
+                  Rol de Supervisor: ve todos los proyectos, no solo los propios.
                 </p>
               )}
             </div>

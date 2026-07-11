@@ -2,16 +2,13 @@
 // No server imports — safe to use in Client Components.
 
 export const MODULOS = [
-  { key: "proveedores", label: "Administración de Proveedores" },
-  { key: "catalogo", label: "Catálogo de Productos" },
-  { key: "licitaciones", label: "Lanzamiento de Licitaciones" },
-  { key: "licitaciones_proceso", label: "Licitaciones en Proceso" },
-  { key: "seleccion_proveedores", label: "Selección de Proveedores" },
-  { key: "ordenes_compra", label: "Órdenes de Compra" },
-  { key: "licitaciones_finalizadas", label: "Licitaciones Finalizadas" },
-  { key: "tablero", label: "Tablero de Indicadores" },
-  { key: "configuracion", label: "Configuración (Catálogos)" },
-  { key: "usuarios", label: "Usuarios y Roles" },
+  { key: "proyectos", label: "Proyectos" },
+  { key: "presupuestos", label: "Presupuestos" },
+  { key: "costos", label: "Costos" },
+  { key: "horas-hombre", label: "Horas-hombre" },
+  { key: "estimaciones", label: "Estimaciones" },
+  { key: "pnl", label: "P&L" },
+  { key: "configuracion", label: "Configuración (Catálogos, Usuarios y Roles)" },
 ] as const;
 
 export type ModuloKey = (typeof MODULOS)[number]["key"];

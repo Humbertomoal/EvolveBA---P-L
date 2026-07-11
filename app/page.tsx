@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 bg-zinc-50 px-6 text-center dark:bg-black">
       <h1 className="text-3xl font-semibold text-zinc-900 dark:text-zinc-50">
-        Evolve BA App Comercial
+        P&amp;L Construcción
       </h1>
       <div className="flex flex-col gap-4 sm:flex-row">
         <Link
@@ -14,12 +14,6 @@ export default function Home() {
           Entrar
         </Link>
       </div>
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        Demo white-label:{" "}
-        <Link href="/grupo-andino/comprador" className="underline">
-          /grupo-andino/comprador
-        </Link>
-      </p>
     </div>
   );
 }

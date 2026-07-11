@@ -1,6 +1,19 @@
 import { PageTitle } from "@/app/_components/PageHeaderContext";
+import { ensureUsuariosSeed } from "@/src/lib/usuariosSeed";
+import { ensureCatalogosSeed } from "@/src/lib/catalogosSeed";
+import { ensureProyectosSeed } from "@/src/lib/proyectosSeed";
 
-export default function CompradorHomePage() {
+export default async function CompradorHomePage() {
+  const clienteId = "default";
+
+  try {
+    await ensureUsuariosSeed(clienteId);
+    await ensureCatalogosSeed(clienteId);
+    await ensureProyectosSeed(clienteId);
+  } catch {
+    // Migration not yet applied — seed skipped
+  }
+
   return (
     <div className="max-w-3xl">
       <PageTitle title="Panel" />

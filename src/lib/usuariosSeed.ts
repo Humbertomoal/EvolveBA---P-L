@@ -5,10 +5,11 @@ import { prisma } from "./prisma";
 const db = prisma as any;
 
 const TODOS_MODULOS = [
-  "proveedores", "catalogo", "licitaciones", "licitaciones_proceso",
-  "seleccion_proveedores", "ordenes_compra", "licitaciones_finalizadas",
-  "tablero", "configuracion", "usuarios",
+  "proyectos", "presupuestos", "costos", "horas-hombre",
+  "estimaciones", "pnl", "configuracion",
 ];
+
+const MODULOS_CAPTURISTA = ["costos", "horas-hombre"];
 
 async function upsertRol(
   clienteId: string,
@@ -38,51 +39,58 @@ async function upsertPermiso(
 }
 
 export async function ensureUsuariosSeed(clienteId = "default") {
-  // ── Administrador ──────────────────────────────────────────────────────────
+  // ── Administrador: acceso total ──────────────────────────────────────────
   const admin = await upsertRol(clienteId, "Administrador", "Acceso total al sistema", true, false);
   for (const modulo of TODOS_MODULOS) {
     await upsertPermiso(admin.id, modulo, { ver: true, crear: true, editar: true, eliminar: true });
   }
 
-  // ── Gerente de Compras ─────────────────────────────────────────────────────
+  // ── Gerente: todo excepto configuración ──────────────────────────────────
   const gerente = await upsertRol(
     clienteId,
-    "Gerente de Compras",
-    "Supervisión de todas las licitaciones del sistema",
+    "Gerente",
+    "Supervisión operativa de proyectos, costos y P&L",
     false,
     true
   );
   for (const modulo of TODOS_MODULOS) {
-    const acceso = !["usuarios", "configuracion"].includes(modulo);
-    await upsertPermiso(gerente.id, modulo, {
-      ver: acceso, crear: acceso, editar: acceso, eliminar: false,
-    });
+    if (modulo === "configuracion") {
+      await upsertPermiso(gerente.id, modulo, { ver: false, crear: false, editar: false, eliminar: false });
+    } else if (modulo === "pnl") {
+      // pnl es un dashboard calculado: no hay nada que crear/editar, solo ver.
+      await upsertPermiso(gerente.id, modulo, { ver: true, crear: false, editar: false, eliminar: false });
+    } else {
+      await upsertPermiso(gerente.id, modulo, { ver: true, crear: true, editar: true, eliminar: false });
+    }
   }
 
-  // ── Comprador ──────────────────────────────────────────────────────────────
-  const comprador = await upsertRol(clienteId, "Comprador", "Acceso operativo sin administración", false, false);
+  // ── Capturista: captura costos y horas-hombre, solo lectura en el resto ──
+  const capturista = await upsertRol(
+    clienteId,
+    "Capturista",
+    "Captura de costos y horas-hombre; solo lectura en el resto",
+    false,
+    false
+  );
   for (const modulo of TODOS_MODULOS) {
-    const acceso = !["usuarios", "configuracion"].includes(modulo);
-    await upsertPermiso(comprador.id, modulo, {
-      ver: acceso, crear: acceso, editar: acceso, eliminar: false,
-    });
-  }
-
-  // ── Solo lectura ───────────────────────────────────────────────────────────
-  const lectura = await upsertRol(clienteId, "Solo lectura", "Solo puede ver información, sin modificar", false, false);
-  for (const modulo of TODOS_MODULOS) {
-    await upsertPermiso(lectura.id, modulo, { ver: true, crear: false, editar: false, eliminar: false });
+    if (modulo === "configuracion") {
+      await upsertPermiso(capturista.id, modulo, { ver: false, crear: false, editar: false, eliminar: false });
+    } else if (MODULOS_CAPTURISTA.includes(modulo)) {
+      await upsertPermiso(capturista.id, modulo, { ver: true, crear: true, editar: true, eliminar: false });
+    } else {
+      await upsertPermiso(capturista.id, modulo, { ver: true, crear: false, editar: false, eliminar: false });
+    }
   }
 
   // ── Usuario administrador del sistema ──────────────────────────────────────
-  const adminEmail = "admin@cyrgo.com";
+  const adminEmail = "admin@plconstruccion.com";
   const existe = await db.usuario.findUnique({ where: { email: adminEmail } });
   if (!existe) {
     const passwordHash = await bcrypt.hash("Admin2026!", 12);
     await db.usuario.create({
       data: {
         nombre: "Admin",
-        apellido: "CYRGO",
+        apellido: "P&L",
         email: adminEmail,
         password: passwordHash,
         activo: true,

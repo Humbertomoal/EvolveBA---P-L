@@ -5,47 +5,32 @@ const db = prisma as any;
 
 type SeedValor = { codigo: string; nombre: string; orden: number; simbolo?: string };
 
+// CostCategory NO va aquí: es un enum de Prisma, fuente de verdad única.
+// CatalogoValor solo cubre lo configurable por cliente.
 const SEED: Record<string, SeedValor[]> = {
-  JERARQUIA: [
-    { codigo: "CRITICA", nombre: "Crítica", orden: 1 },
-    { codigo: "ALTA", nombre: "Alta", orden: 2 },
-    { codigo: "MEDIA", nombre: "Media", orden: 3 },
-    { codigo: "BAJA", nombre: "Baja", orden: 4 },
-  ],
-  TIPO_LICITACION: [
-    { codigo: "MTS", nombre: "Made to Stock", orden: 1 },
-    { codigo: "MTO", nombre: "Made to Order", orden: 2 },
-    { codigo: "COT", nombre: "Cotización", orden: 3 },
-    { codigo: "SVC", nombre: "Servicio", orden: 4 },
-  ],
-  FAMILIA: [
-    { codigo: "TI", nombre: "TI", orden: 1 },
-    { codigo: "INFRA", nombre: "Infraestructura", orden: 2 },
-    { codigo: "PROF", nombre: "Servicios Profesionales", orden: 3 },
-    { codigo: "MANUF", nombre: "Manufactura", orden: 4 },
-    { codigo: "CONS", nombre: "Consumibles", orden: 5 },
-    { codigo: "EQUIP", nombre: "Equipamiento", orden: 6 },
-  ],
   UNIDAD_MEDIDA: [
-    { codigo: "PZA", nombre: "Pieza", orden: 1 },
-    { codigo: "KG", nombre: "Kilogramo", orden: 2 },
-    { codigo: "LT", nombre: "Litro", orden: 3 },
-    { codigo: "MT", nombre: "Metro", orden: 4 },
-    { codigo: "HR", nombre: "Hora", orden: 5 },
-    { codigo: "SVC", nombre: "Servicio", orden: 6 },
-    { codigo: "CJA", nombre: "Caja", orden: 7 },
-    { codigo: "TON", nombre: "Tonelada", orden: 8 },
-    { codigo: "RLL", nombre: "Rollo", orden: 9 },
-    { codigo: "JGO", nombre: "Juego", orden: 10 },
+    { codigo: "M3", nombre: "Metro cúbico", orden: 1 },
+    { codigo: "M2", nombre: "Metro cuadrado", orden: 2 },
+    { codigo: "ML", nombre: "Metro lineal", orden: 3 },
+    { codigo: "TON", nombre: "Tonelada", orden: 4 },
+    { codigo: "KG", nombre: "Kilogramo", orden: 5 },
+    { codigo: "PZA", nombre: "Pieza", orden: 6 },
+    { codigo: "JORNAL", nombre: "Jornal", orden: 7 },
+    { codigo: "LOTE", nombre: "Lote", orden: 8 },
   ],
-  MONEDA: [
-    { codigo: "MXN", nombre: "Peso Mexicano", orden: 1, simbolo: "$" },
-    { codigo: "USD", nombre: "Dólar Americano", orden: 2, simbolo: "$" },
-    { codigo: "EUR", nombre: "Euro", orden: 3, simbolo: "€" },
-    { codigo: "COP", nombre: "Peso Colombiano", orden: 4, simbolo: "$" },
-    { codigo: "DOP", nombre: "Peso Dominicano", orden: 5, simbolo: "$" },
-    { codigo: "CAD", nombre: "Dólar Canadiense", orden: 6, simbolo: "$" },
-    { codigo: "GBP", nombre: "Libra Esterlina", orden: 7, simbolo: "£" },
+  ROL_EMPLEADO: [
+    { codigo: "PEON", nombre: "Peón", orden: 1 },
+    { codigo: "ALBANIL", nombre: "Albañil", orden: 2 },
+    { codigo: "OFICIAL", nombre: "Oficial", orden: 3 },
+    { codigo: "CABO", nombre: "Cabo", orden: 4 },
+    { codigo: "MAESTRO_OBRA", nombre: "Maestro de obra", orden: 5 },
+    { codigo: "RESIDENTE", nombre: "Residente", orden: 6 },
+  ],
+  TIPO_PROYECTO: [
+    { codigo: "OBRA_CIVIL", nombre: "Obra civil", orden: 1 },
+    { codigo: "REMODELACION", nombre: "Remodelación", orden: 2 },
+    { codigo: "INSTALACIONES", nombre: "Instalaciones", orden: 3 },
+    { codigo: "URBANIZACION", nombre: "Urbanización", orden: 4 },
   ],
 };
 

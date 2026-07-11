@@ -1,5 +1,11 @@
 import {
+  IconBuildingSkyscraper,
+  IconChartBar,
+  IconClipboardList,
+  IconClock,
+  IconFileInvoice,
   IconListDetails,
+  IconReceipt2,
   IconSettings,
   IconShield,
   IconUser,
@@ -38,6 +44,36 @@ export default async function CompradorLayout({
 
   const NAV_ITEMS = [
     {
+      href: `${basePath}/comprador/proyectos`,
+      label: "Proyectos",
+      icon: <IconBuildingSkyscraper className={ICON_CLASSNAME} />,
+    },
+    {
+      href: `${basePath}/comprador/presupuestos`,
+      label: "Presupuestos",
+      icon: <IconClipboardList className={ICON_CLASSNAME} />,
+    },
+    {
+      href: `${basePath}/comprador/costos`,
+      label: "Costos",
+      icon: <IconReceipt2 className={ICON_CLASSNAME} />,
+    },
+    {
+      href: `${basePath}/comprador/horas-hombre`,
+      label: "Horas-hombre",
+      icon: <IconClock className={ICON_CLASSNAME} />,
+    },
+    {
+      href: `${basePath}/comprador/estimaciones`,
+      label: "Estimaciones",
+      icon: <IconFileInvoice className={ICON_CLASSNAME} />,
+    },
+    {
+      href: `${basePath}/comprador/pnl`,
+      label: "P&L",
+      icon: <IconChartBar className={ICON_CLASSNAME} />,
+    },
+    {
       label: "Configuración",
       icon: <IconSettings className={ICON_CLASSNAME} />,
       children: [
@@ -74,7 +110,7 @@ export default async function CompradorLayout({
         <SidebarNav
           nombreEmpresa={cliente.nombreEmpresa}
           logoUrl={cliente.logoUrl}
-          seccion="Comprador"
+          seccion="P&L Construcción"
           panelHref={`${basePath}/comprador`}
           cambiarVistaHref={`${basePath}/inicio`}
           items={NAV_ITEMS}

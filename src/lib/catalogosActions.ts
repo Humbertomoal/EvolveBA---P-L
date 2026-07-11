@@ -69,22 +69,9 @@ export async function eliminarCatalogoValorAction(
   const valor: any = await db.catalogoValor.findUnique({ where: { id } });
   if (!valor) return { ok: false, error: "No encontrado." };
 
-  let count = 0;
-  try {
-    if (valor.tipo === "JERARQUIA") {
-      count = await prisma.licitacion.count({ where: { jerarquia: valor.nombre, eliminado: false } });
-    } else if (valor.tipo === "TIPO_LICITACION") {
-      count = await prisma.licitacion.count({ where: { tipoLicitacion: valor.nombre, eliminado: false } });
-    } else if (valor.tipo === "FAMILIA") {
-      count = await prisma.producto.count({ where: { familia: valor.nombre, eliminado: false } });
-    } else if (valor.tipo === "UNIDAD_MEDIDA") {
-      count = await prisma.producto.count({ where: { unidadMedida: valor.nombre, eliminado: false } });
-    } else if (valor.tipo === "MONEDA") {
-      count = await prisma.licitacionItem.count({ where: { moneda: valor.codigo } });
-    }
-  } catch {
-    // Ignore count errors — proceed with deletion if usage check fails
-  }
+  // TODO(Paso 6/7): reimplementar el chequeo de uso contra los tipos de catálogo
+  // del dominio P&L (categorías de costo, unidades) una vez definidos.
+  const count: number = 0;
 
   if (count > 0) {
     return {

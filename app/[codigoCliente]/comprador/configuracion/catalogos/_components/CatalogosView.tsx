@@ -15,18 +15,16 @@ import {
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import EmptyState from "@/src/components/EmptyState";
 
-type TabKey = "JERARQUIA" | "TIPO_LICITACION" | "FAMILIA" | "UNIDAD_MEDIDA" | "MONEDA";
+type TabKey = "UNIDAD_MEDIDA" | "ROL_EMPLEADO" | "TIPO_PROYECTO";
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: "JERARQUIA", label: "Criticidad" },
-  { key: "TIPO_LICITACION", label: "Tipos de Licitación" },
-  { key: "FAMILIA", label: "Familias de Producto" },
   { key: "UNIDAD_MEDIDA", label: "Unidades de Medida" },
-  { key: "MONEDA", label: "Monedas" },
+  { key: "ROL_EMPLEADO", label: "Roles de Empleado" },
+  { key: "TIPO_PROYECTO", label: "Tipos de Proyecto" },
 ];
 
 function tabDesdeParam(v: string | null): TabKey {
-  return TABS.some((t) => t.key === v) ? (v as TabKey) : "JERARQUIA";
+  return TABS.some((t) => t.key === v) ? (v as TabKey) : "UNIDAD_MEDIDA";
 }
 
 type ModalState =
@@ -55,18 +53,12 @@ export default function CatalogosView({
   // Modal form state
   const [formCodigo, setFormCodigo] = useState("");
   const [formNombre, setFormNombre] = useState("");
-  const [formSimbolo, setFormSimbolo] = useState("");
   const [formActivo, setFormActivo] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
 
   const tabValores = valores
     .filter((v) => v.tipo === tab)
     .sort((a: any, b: any) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
-
-  const esMonedaTab = tab === "MONEDA";
-  const esMonedaModal =
-    modal.open &&
-    (modal.modo === "crear" ? modal.tipo === "MONEDA" : modal.valor.tipo === "MONEDA");
 
   function cambiarTab(key: TabKey) {
     setTab(key);
@@ -80,7 +72,6 @@ export default function CatalogosView({
   function abrirCrear() {
     setFormCodigo("");
     setFormNombre("");
-    setFormSimbolo("");
     setFormActivo(true);
     setFormError(null);
     setBannerError(null);
@@ -89,7 +80,6 @@ export default function CatalogosView({
 
   function abrirEditar(valor: CatalogoValorDTO) {
     setFormNombre(valor.nombre);
-    setFormSimbolo(valor.simbolo ?? "");
     setFormActivo(valor.activo);
     setFormError(null);
     setBannerError(null);
@@ -115,7 +105,7 @@ export default function CatalogosView({
 
     const datos = {
       nombre: formNombre.trim(),
-      simbolo: esMonedaModal ? formSimbolo.trim() || null : null,
+      simbolo: null,
       activo: formActivo,
     };
 
@@ -256,7 +246,6 @@ export default function CatalogosView({
                   <th className="w-24 px-4 py-2.5">Orden</th>
                   <th className="px-4 py-2.5">Código</th>
                   <th className="px-4 py-2.5">Nombre</th>
-                  {esMonedaTab && <th className="px-4 py-2.5">Símbolo</th>}
                   <th className="px-4 py-2.5">Estado</th>
                   <th className="px-4 py-2.5 text-right">Acciones</th>
                 </tr>
@@ -277,9 +266,6 @@ export default function CatalogosView({
                     </td>
                     <td className="px-4 py-2.5 font-mono text-xs text-zinc-500">{v.codigo}</td>
                     <td className="px-4 py-2.5 text-zinc-800">{v.nombre}</td>
-                    {esMonedaTab && (
-                      <td className="px-4 py-2.5 text-zinc-500">{v.simbolo ?? "—"}</td>
-                    )}
                     <td className="px-4 py-2.5">
                       <button
                         type="button"
@@ -402,20 +388,6 @@ export default function CatalogosView({
                   autoFocus={modal.modo === "editar"}
                 />
               </div>
-
-              {esMonedaModal && (
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-zinc-700">Símbolo</label>
-                  <input
-                    type="text"
-                    value={formSimbolo}
-                    onChange={(e) => setFormSimbolo(e.target.value)}
-                    placeholder="Ej. $, €, £"
-                    maxLength={3}
-                    className={INPUT_MODAL}
-                  />
-                </div>
-              )}
 
               <label className="flex cursor-pointer items-center gap-2">
                 <input
