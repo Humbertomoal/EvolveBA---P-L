@@ -1,11 +1,13 @@
 import {
   IconBuildingSkyscraper,
+  IconCash,
   IconChartBar,
   IconClipboardList,
   IconClock,
   IconFileInvoice,
   IconListDetails,
   IconReceipt2,
+  IconRuler2,
   IconSettings,
   IconShield,
   IconUser,
@@ -56,9 +58,25 @@ export default async function CompradorLayout({
       icon: <IconClipboardList className={ICON_CLASSNAME} />,
     },
     {
-      href: `${basePath}/comprador/costos`,
+      href: `${basePath}/comprador/elementos`,
+      label: "Elementos",
+      icon: <IconRuler2 className={ICON_CLASSNAME} />,
+    },
+    {
       label: "Costos",
       icon: <IconReceipt2 className={ICON_CLASSNAME} />,
+      children: [
+        {
+          href: `${basePath}/comprador/costos`,
+          label: "Registro de costos",
+          icon: <IconReceipt2 className={ICON_CLASSNAME} />,
+        },
+        {
+          href: `${basePath}/comprador/costos/nomina`,
+          label: "Nómina",
+          icon: <IconCash className={ICON_CLASSNAME} />,
+        },
+      ],
     },
     {
       href: `${basePath}/comprador/horas-hombre`,
@@ -99,6 +117,11 @@ export default async function CompradorLayout({
           href: `${basePath}/comprador/configuracion/catalogos`,
           label: "Catálogos",
           icon: <IconListDetails className={ICON_CLASSNAME} />,
+        },
+        {
+          href: `${basePath}/comprador/configuracion/cuentas`,
+          label: "Cuentas contables",
+          icon: <IconReceipt2 className={ICON_CLASSNAME} />,
         },
         {
           href: `${basePath}/comprador/configuracion/usuarios`,

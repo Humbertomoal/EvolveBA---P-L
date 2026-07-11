@@ -6,10 +6,12 @@ const db = prisma as any;
 
 const TODOS_MODULOS = [
   "proyectos", "presupuestos", "costos", "horas-hombre",
-  "estimaciones", "pnl", "personal", "configuracion",
+  "estimaciones", "pnl", "personal", "elementos", "captura", "configuracion",
 ];
 
-const MODULOS_CAPTURISTA = ["costos", "horas-hombre"];
+// captura: pantalla unificada de avance+horas — el Capturista la necesita para
+// su trabajo del día a día, igual que costos y horas-hombre.
+const MODULOS_CAPTURISTA = ["costos", "horas-hombre", "captura"];
 
 async function upsertRol(
   clienteId: string,

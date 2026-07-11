@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "BudgetItem" ADD COLUMN     "isCalculated" BOOLEAN NOT NULL DEFAULT false,
+ALTER COLUMN "qty" DROP NOT NULL,
+ALTER COLUMN "unitPrice" DROP NOT NULL;
+

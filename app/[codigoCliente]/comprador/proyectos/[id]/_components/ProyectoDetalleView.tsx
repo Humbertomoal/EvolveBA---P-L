@@ -11,11 +11,22 @@ import type {
 import { PROJECT_STATUSES } from "@/src/lib/proyectosTypes";
 import type { CuadrillaDTO } from "@/src/lib/personalTypes";
 import type { PermisoModulo } from "@/src/lib/permisos";
+import type { ElementoConAvanceDTO, TimeEntryHistorialDTO } from "@/src/lib/getCaptura";
+import type { ElementoParaCapturaDTO } from "@/src/lib/capturaTypes";
+import type { CostoDTO } from "@/src/lib/costosTypes";
+import type { PresupuestoPartidaDTO } from "@/src/lib/presupuestoTypes";
+import type { PartidaSelectDTO } from "@/src/lib/getPresupuesto";
+import type { CostAccountDTO } from "@/src/lib/costAccountTypes";
 import { formatImporte } from "@/src/lib/monedas";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import EmptyState from "@/src/components/EmptyState";
 import Badge, { type BadgeVariant } from "@/src/components/Badge";
 import PersonalTab from "./PersonalTab";
+import CapturaTab from "./CapturaTab";
+import ElementosTab from "./ElementosTab";
+import HorasTab from "./HorasTab";
+import CostosTab from "./CostosTab";
+import PresupuestoTab from "./PresupuestoTab";
 
 const ESTATUS_VARIANT: Record<ProyectoDetalleDTO["status"], BadgeVariant> = {
   PLANEACION: "info",
@@ -33,6 +44,7 @@ const TABS = [
   { key: "personal", label: "Personal" },
   { key: "presupuesto", label: "Presupuesto" },
   { key: "elementos", label: "Elementos" },
+  { key: "captura", label: "Captura" },
   { key: "costos", label: "Costos" },
   { key: "horas", label: "Horas" },
   { key: "estimaciones", label: "Estimaciones" },
@@ -58,6 +70,18 @@ export default function ProyectoDetalleView({
   disponibles,
   cuadrillas,
   permiso,
+  permisoCaptura,
+  permisoHorasHombre,
+  permisoPresupuesto,
+  elementosParaCaptura,
+  elementosConAvance,
+  historialHoras,
+  costosProyecto,
+  moAplicada,
+  cuentaNominaOperativa,
+  presupuesto,
+  partidasSelect,
+  cuentas,
   clienteId,
   basePath,
 }: {
@@ -66,11 +90,29 @@ export default function ProyectoDetalleView({
   disponibles: EmpleadoParaAsignarDTO[];
   cuadrillas: CuadrillaDTO[];
   permiso: PermisoModulo;
+  permisoCaptura: PermisoModulo;
+  permisoHorasHombre: PermisoModulo;
+  permisoPresupuesto: PermisoModulo;
+  elementosParaCaptura: ElementoParaCapturaDTO[];
+  elementosConAvance: ElementoConAvanceDTO[];
+  historialHoras: TimeEntryHistorialDTO[];
+  costosProyecto: CostoDTO[];
+  moAplicada: number;
+  cuentaNominaOperativa: { code: string; name: string } | null;
+  presupuesto: PresupuestoPartidaDTO[];
+  partidasSelect: PartidaSelectDTO[];
+  cuentas: CostAccountDTO[];
   clienteId: string;
   basePath: string;
 }) {
   usePageTitle(proyecto.name);
   const [tab, setTab] = useState<TabKey>("resumen");
+  const [elementoCapturaPreseleccionado, setElementoCapturaPreseleccionado] = useState<string | null>(null);
+
+  function irACaptura(elementId: string) {
+    setElementoCapturaPreseleccionado(elementId);
+    setTab("captura");
+  }
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -148,13 +190,66 @@ export default function ProyectoDetalleView({
         />
       )}
 
-      {tab !== "resumen" && tab !== "personal" && (
-        <EmptyState
-          icon="IconClock"
-          title="Disponible en próxima fase"
-          description={`La pestaña "${TABS.find((t) => t.key === tab)?.label}" se implementa en una fase posterior.`}
+      {tab === "presupuesto" && (
+        <PresupuestoTab
+          projectId={proyecto.id}
+          partidas={presupuesto}
+          cuentas={cuentas}
+          permiso={permisoPresupuesto}
+          clienteId={clienteId}
         />
       )}
+
+      {tab === "elementos" && (
+        <ElementosTab
+          elementos={elementosConAvance}
+          avanceProyecto={proyecto.avancePct}
+          partidas={partidasSelect}
+          permisoCaptura={permisoCaptura}
+          permisoPresupuesto={permisoPresupuesto}
+          clienteId={clienteId}
+          onIrACaptura={irACaptura}
+        />
+      )}
+
+      {tab === "captura" && (
+        <CapturaTab
+          projectId={proyecto.id}
+          clienteId={clienteId}
+          elementos={elementosParaCaptura}
+          cuadrillas={cuadrillas}
+          permiso={permisoCaptura}
+          elementoPreseleccionado={elementoCapturaPreseleccionado}
+        />
+      )}
+
+      {tab === "horas" && (
+        <HorasTab
+          historial={historialHoras}
+          empleados={asignados}
+          elementos={elementosParaCaptura}
+          permiso={permisoHorasHombre}
+          clienteId={clienteId}
+        />
+      )}
+
+      {tab === "costos" && (
+        <CostosTab costos={costosProyecto} moAplicada={moAplicada} cuentaNominaOperativa={cuentaNominaOperativa} />
+      )}
+
+      {tab !== "resumen" &&
+        tab !== "personal" &&
+        tab !== "presupuesto" &&
+        tab !== "elementos" &&
+        tab !== "captura" &&
+        tab !== "horas" &&
+        tab !== "costos" && (
+          <EmptyState
+            icon="IconClock"
+            title="Disponible en próxima fase"
+            description={`La pestaña "${TABS.find((t) => t.key === tab)?.label}" se implementa en una fase posterior.`}
+          />
+        )}
     </div>
   );
 }

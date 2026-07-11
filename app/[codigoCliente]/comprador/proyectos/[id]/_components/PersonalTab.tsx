@@ -7,10 +7,10 @@ import toast from "react-hot-toast";
 import type { EmpleadoAsignadoDTO, EmpleadoParaAsignarDTO } from "@/src/lib/proyectosTypes";
 import type { CuadrillaDTO } from "@/src/lib/personalTypes";
 import type { PermisoModulo } from "@/src/lib/permisos";
-import { quitarAsignacionAction } from "@/src/lib/proyectosActions";
+import { quitarAsignacionAction, sincronizarAsignacionesAction } from "@/src/lib/proyectosActions";
 import { formatImporte } from "@/src/lib/monedas";
 import EmptyState from "@/src/components/EmptyState";
-import AsignarPersonalModal from "./AsignarPersonalModal";
+import AsignarPersonalModal from "../../_components/AsignarPersonalModal";
 
 export default function PersonalTab({
   projectId,
@@ -40,6 +40,17 @@ export default function PersonalTab({
       return;
     }
     toast.success("Empleado removido del proyecto");
+    router.refresh();
+  }
+
+  async function handleAceptarModal(employeeIds: string[]) {
+    const result = await sincronizarAsignacionesAction(projectId, clienteId, employeeIds);
+    if (!result.ok) {
+      toast.error(result.error ?? "No se pudo actualizar el personal asignado.");
+      return;
+    }
+    toast.success("Personal asignado correctamente");
+    setModalAbierto(false);
     router.refresh();
   }
 
@@ -112,15 +123,11 @@ export default function PersonalTab({
 
       {modalAbierto && (
         <AsignarPersonalModal
-          projectId={projectId}
-          clienteId={clienteId}
           disponibles={disponibles}
           cuadrillas={cuadrillas}
+          seleccionInicial={asignados.map((a) => a.employeeId)}
           onCerrar={() => setModalAbierto(false)}
-          onGuardado={() => {
-            setModalAbierto(false);
-            router.refresh();
-          }}
+          onAceptar={handleAceptarModal}
         />
       )}
     </div>

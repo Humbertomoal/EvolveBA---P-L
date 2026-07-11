@@ -1,6 +1,8 @@
 import { prisma } from "./prisma";
 import { calcularAvancePct } from "./avanceProyecto";
+import { getEmpleados } from "./getPersonal";
 import type {
+  ElementoProyectoDTO,
   EmpleadoAsignadoDTO,
   EmpleadoParaAsignarDTO,
   ProyectoDetalleDTO,
@@ -13,17 +15,19 @@ export async function getProyectos(clienteId = "default"): Promise<ProyectoDTO[]
     orderBy: { createdAt: "desc" },
   });
 
-  return proyectos.map((p) => ({
-    id: p.id,
-    code: p.code,
-    name: p.name,
-    clientName: p.clientName,
-    type: p.type,
-    contractAmount: p.contractAmount.toNumber(),
-    status: p.status,
-    startDate: p.startDate.toISOString(),
-    avancePct: calcularAvancePct(p.id),
-  }));
+  return Promise.all(
+    proyectos.map(async (p) => ({
+      id: p.id,
+      code: p.code,
+      name: p.name,
+      clientName: p.clientName,
+      type: p.type,
+      contractAmount: p.contractAmount.toNumber(),
+      status: p.status,
+      startDate: p.startDate.toISOString(),
+      avancePct: await calcularAvancePct(p.id),
+    }))
+  );
 }
 
 export async function getProyectoDetalle(
@@ -48,7 +52,7 @@ export async function getProyectoDetalle(
     endDate: p.endDate ? p.endDate.toISOString() : null,
     status: p.status,
     notes: p.notes,
-    avancePct: calcularAvancePct(p.id),
+    avancePct: await calcularAvancePct(p.id),
   };
 }
 
@@ -64,36 +68,53 @@ export async function getEmpleadosAsignados(projectId: string): Promise<Empleado
     employeeId: a.employeeId,
     name: a.employee.name,
     role: a.employee.role,
+    crewId: a.employee.crewId,
     crewNombre: a.employee.crew?.name ?? null,
     hourlyCost: a.employee.hourlyCost.toNumber(),
   }));
 }
 
-export async function getEmpleadosParaAsignar(
-  projectId: string,
-  clienteId = "default"
-): Promise<EmpleadoParaAsignarDTO[]> {
-  const [empleados, asignados] = await Promise.all([
-    prisma.employee.findMany({
-      where: { clienteId, active: true, deletedAt: null },
-      include: { crew: { select: { name: true } } },
-      orderBy: { name: "asc" },
-    }),
-    prisma.projectAssignment.findMany({
-      where: { projectId, removedAt: null },
-      select: { employeeId: true },
-    }),
-  ]);
+// Renglones de Element ya persistidos, para precargar la tabla editable en
+// editar. Trae los valores LIVE del ElementType (join), no el snapshot del
+// Element, porque son los que necesita el botón "recalcular desde catálogo".
+export async function getElementosProyecto(projectId: string): Promise<ElementoProyectoDTO[]> {
+  const elementos = await prisma.element.findMany({
+    where: { projectId, deletedAt: null },
+    include: { elementType: true },
+    orderBy: { createdAt: "asc" },
+  });
 
-  const asignadosIds = new Set(asignados.map((a) => a.employeeId));
-
-  return empleados.map((e) => ({
-    id: e.id,
-    name: e.name,
-    role: e.role,
-    crewId: e.crewId,
-    crewNombre: e.crew?.name ?? null,
-    isLeader: e.isLeader,
-    yaAsignado: asignadosIds.has(e.id),
+  return elementos.map((e) => ({
+    elementId: e.id,
+    elementTypeId: e.elementTypeId ?? "",
+    elementTypeName: e.elementType?.name ?? e.name,
+    elementTypeFamily: e.elementType?.family ?? e.type,
+    weightUnit: e.elementType?.weightUnit ?? "KG_PZA",
+    weightValueCatalogo: e.elementType?.weightValue.toNumber() ?? e.weight.toNumber(),
+    priceUnit: e.elementType?.priceUnit ?? "PZA",
+    estimatedPriceCatalogo: e.elementType?.estimatedPrice.toNumber() ?? e.unitCost.toNumber(),
+    code: e.code,
+    qty: e.qty,
+    length: e.length?.toNumber() ?? null,
+    unitCost: e.unitCost.toNumber(),
   }));
+}
+
+// Picker de empleados activos reutilizado por el formulario de proyecto (nuevo/
+// editar) y por el tab Personal del detalle — reusa getEmpleados (Fase 1) en vez
+// de duplicar la query.
+export async function getEmpleadosParaAsignar(clienteId = "default"): Promise<EmpleadoParaAsignarDTO[]> {
+  const empleados = await getEmpleados(clienteId);
+  return empleados
+    .filter((e) => e.active)
+    .map((e) => ({
+      id: e.id,
+      code: e.code,
+      name: e.name,
+      role: e.role,
+      crewId: e.crewId,
+      crewNombre: e.crewNombre,
+      isLeader: e.isLeader,
+      hourlyCost: Number(e.hourlyCost),
+    }));
 }
