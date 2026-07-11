@@ -9,6 +9,8 @@ import {
   IconSettings,
   IconShield,
   IconUser,
+  IconUsers,
+  IconUsersGroup,
 } from "@tabler/icons-react";
 import SidebarNav from "@/app/_components/SidebarNav";
 import TopBar from "@/app/_components/TopBar";
@@ -72,6 +74,22 @@ export default async function CompradorLayout({
       href: `${basePath}/comprador/pnl`,
       label: "P&L",
       icon: <IconChartBar className={ICON_CLASSNAME} />,
+    },
+    {
+      label: "Personal",
+      icon: <IconUsersGroup className={ICON_CLASSNAME} />,
+      children: [
+        {
+          href: `${basePath}/comprador/personal/empleados`,
+          label: "Empleados",
+          icon: <IconUsers className={ICON_CLASSNAME} />,
+        },
+        {
+          href: `${basePath}/comprador/personal/cuadrillas`,
+          label: "Cuadrillas",
+          icon: <IconUsersGroup className={ICON_CLASSNAME} />,
+        },
+      ],
     },
     {
       label: "Configuración",

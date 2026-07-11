@@ -8,6 +8,7 @@ export const MODULOS = [
   { key: "horas-hombre", label: "Horas-hombre" },
   { key: "estimaciones", label: "Estimaciones" },
   { key: "pnl", label: "P&L" },
+  { key: "personal", label: "Personal (Empleados y Cuadrillas)" },
   { key: "configuracion", label: "Configuración (Catálogos, Usuarios y Roles)" },
 ] as const;
 

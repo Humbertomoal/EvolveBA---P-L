@@ -32,6 +32,14 @@ const SEED: Record<string, SeedValor[]> = {
     { codigo: "INSTALACIONES", nombre: "Instalaciones", orden: 3 },
     { codigo: "URBANIZACION", nombre: "Urbanización", orden: 4 },
   ],
+  TIPO_ELEMENTO: [
+    { codigo: "VIGA", nombre: "Viga", orden: 1 },
+    { codigo: "PLACA", nombre: "Placa", orden: 2 },
+    { codigo: "COLUMNA", nombre: "Columna", orden: 3 },
+    { codigo: "BARRA", nombre: "Barra", orden: 4 },
+    { codigo: "ANGULO", nombre: "Ángulo", orden: 5 },
+    { codigo: "CONEXION", nombre: "Conexión", orden: 6 },
+  ],
 };
 
 export async function ensureCatalogosSeed(clienteId = "default") {

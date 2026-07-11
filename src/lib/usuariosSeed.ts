@@ -6,7 +6,7 @@ const db = prisma as any;
 
 const TODOS_MODULOS = [
   "proyectos", "presupuestos", "costos", "horas-hombre",
-  "estimaciones", "pnl", "configuracion",
+  "estimaciones", "pnl", "personal", "configuracion",
 ];
 
 const MODULOS_CAPTURISTA = ["costos", "horas-hombre"];

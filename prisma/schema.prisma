@@ -35,6 +35,7 @@ model Project {
   code           String
   name           String
   clientName     String // cliente final de la obra (no confundir con el tenant)
+  type           String? // catálogo TIPO_PROYECTO
   contractAmount Decimal       @db.Decimal(14, 2)
   advanceAmount  Decimal       @default(0) @db.Decimal(14, 2) // anticipo recibido
   retentionPct   Decimal       @default(0) @db.Decimal(5, 2) // fondo de garantía %
@@ -50,6 +51,8 @@ model Project {
   costs       Cost[]
   timeEntries TimeEntry[]
   estimates   Estimate[]
+  assignments ProjectAssignment[]
+  elements    Element[]
 
   @@unique([clienteId, code])
   @@index([clienteId, status])
@@ -75,6 +78,7 @@ model BudgetItem {
   children    BudgetItem[] @relation("BudgetTree")
   costs       Cost[]
   timeEntries TimeEntry[]
+  elements    Element[]
 
   @@unique([projectId, code])
   @@index([projectId, category])
@@ -84,6 +88,7 @@ model Cost {
   id           String       @id @default(cuid())
   projectId    String
   budgetItemId String? // opcional: costo sin clasificar a partida
+  elementId    String? // opcional: costo asociado a un elemento (estructurista)
   supplierName String? // texto libre por ahora (no hay módulo de proveedores)
   date         DateTime
   category     CostCategory
@@ -97,6 +102,7 @@ model Cost {
 
   project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   budgetItem BudgetItem? @relation(fields: [budgetItemId], references: [id])
+  element    Element?    @relation(fields: [elementId], references: [id])
 
   @@index([projectId, date])
   @@index([projectId, category])
@@ -110,11 +116,16 @@ model Employee {
   role       String? // albañil, oficial, cabo, ingeniero
   hourlyCost Decimal   @db.Decimal(10, 2) // costo/hora INTEGRADO (con carga social)
   active     Boolean   @default(true)
+  isLeader   Boolean   @default(false)
+  crewId     String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
 
+  crew        Crew?               @relation("CrewMembers", fields: [crewId], references: [id])
+  leads       Crew?               @relation("CrewLeader")
   timeEntries TimeEntry[]
+  assignments ProjectAssignment[]
 
   @@index([clienteId, active])
 }
@@ -124,6 +135,7 @@ model TimeEntry {
   projectId    String
   employeeId   String
   budgetItemId String?
+  elementId    String? // opcional: horas asociadas a un elemento (estructurista)
   date         DateTime @db.Date
   hours        Decimal  @db.Decimal(6, 2)
   hourlyCost   Decimal  @db.Decimal(10, 2) // SNAPSHOT de Employee.hourlyCost
@@ -135,6 +147,7 @@ model TimeEntry {
   project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   employee   Employee    @relation(fields: [employeeId], references: [id])
   budgetItem BudgetItem? @relation(fields: [budgetItemId], references: [id])
+  element    Element?    @relation(fields: [elementId], references: [id])
 
   @@unique([projectId, employeeId, date])
   @@index([projectId, date])
@@ -225,4 +238,92 @@ model CatalogoValor {
   updatedAt DateTime @updatedAt
 
   @@unique([tipo, codigo, clienteId])
+}
+
+model Crew {
+  id        String    @id @default(cuid())
+  clienteId String
+  name      String
+  leaderId  String    @unique
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  leader  Employee   @relation("CrewLeader", fields: [leaderId], references: [id])
+  members Employee[] @relation("CrewMembers")
+
+  @@index([clienteId, active])
+}
+
+model ProjectAssignment {
+  id         String    @id @default(cuid())
+  projectId  String
+  employeeId String
+  assignedAt DateTime  @default(now())
+  removedAt  DateTime?
+
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([projectId, employeeId])
+}
+
+model ElementStage {
+  id        String  @id @default(cuid())
+  clienteId String
+  code      String // HABILITADO, FABRICADO, EN_SITIO, MONTADO
+  name      String
+  weightPct Decimal @db.Decimal(5, 2) // los pesos deben sumar 100 por tenant
+  order     Int
+
+  progress ElementProgress[]
+
+  @@unique([clienteId, code])
+}
+
+model Element {
+  id           String  @id @default(cuid())
+  projectId    String
+  budgetItemId String?
+  code         String // "V-101"
+  name         String
+  type         String // catálogo TIPO_ELEMENTO
+  description  String?
+
+  length Decimal? @db.Decimal(10, 3)
+  width  Decimal? @db.Decimal(10, 3)
+  height Decimal? @db.Decimal(10, 3)
+  weight Decimal  @db.Decimal(12, 3) // kg UNITARIO
+
+  qty         Int     @default(1)
+  unitCost    Decimal @db.Decimal(14, 2)
+  totalCost   Decimal @db.Decimal(14, 2) // unitCost × qty
+  progressPct Decimal @default(0) @db.Decimal(5, 2) // DERIVADO, no capturable
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  budgetItem  BudgetItem?       @relation(fields: [budgetItemId], references: [id])
+  progress    ElementProgress[]
+  timeEntries TimeEntry[]
+  costs       Cost[]
+
+  @@unique([projectId, code])
+  @@index([projectId, budgetItemId])
+}
+
+model ElementProgress {
+  id        String   @id @default(cuid())
+  elementId String
+  stageId   String
+  qtyDone   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  element Element      @relation(fields: [elementId], references: [id], onDelete: Cascade)
+  stage   ElementStage @relation(fields: [stageId], references: [id])
+
+  @@unique([elementId, stageId])
 }

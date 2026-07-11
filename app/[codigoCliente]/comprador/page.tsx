@@ -2,6 +2,7 @@ import { PageTitle } from "@/app/_components/PageHeaderContext";
 import { ensureUsuariosSeed } from "@/src/lib/usuariosSeed";
 import { ensureCatalogosSeed } from "@/src/lib/catalogosSeed";
 import { ensureProyectosSeed } from "@/src/lib/proyectosSeed";
+import { ensureElementStagesSeed } from "@/src/lib/elementosSeed";
 
 export default async function CompradorHomePage() {
   const clienteId = "default";
@@ -10,6 +11,7 @@ export default async function CompradorHomePage() {
     await ensureUsuariosSeed(clienteId);
     await ensureCatalogosSeed(clienteId);
     await ensureProyectosSeed(clienteId);
+    await ensureElementStagesSeed(clienteId);
   } catch {
     // Migration not yet applied — seed skipped
   }

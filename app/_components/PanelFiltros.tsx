@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type SeccionFiltroCheckboxes = {
-  tipo?: "checkboxes";
+  tipo: "checkboxes";
   titulo: string;
   opciones: { label: string; value: string }[];
   seleccionados: string[];
@@ -26,7 +26,16 @@ export type SeccionFiltroSelect = {
   onFechaHasta?: (v: string) => void;
 };
 
-export type SeccionFiltroConfig = SeccionFiltroCheckboxes | SeccionFiltroSelect;
+// Free-text search input.
+export type SeccionFiltroTexto = {
+  tipo: "texto";
+  titulo: string;
+  placeholder?: string;
+  valor: string;
+  onCambio: (v: string) => void;
+};
+
+export type SeccionFiltroConfig = SeccionFiltroCheckboxes | SeccionFiltroSelect | SeccionFiltroTexto;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -47,6 +56,9 @@ export default function PanelFiltros({
   const contador = secciones.reduce((sum: any, s: any) => {
     if (s.tipo === "select") {
       return sum + (s.valor !== (s.opciones[0]?.value ?? "") ? 1 : 0);
+    }
+    if (s.tipo === "texto") {
+      return sum + (s.valor.trim() ? 1 : 0);
     }
     return sum + s.seleccionados.length;
   }, 0);
@@ -94,7 +106,20 @@ export default function PanelFiltros({
           className="absolute top-full right-0 z-20 mt-1 w-[300px] rounded-[10px] border border-[#ede8e8] bg-white p-4 shadow-[0_1px_6px_rgba(0,0,0,0.07)]"
         >
           {secciones.map((seccion) =>
-            seccion.tipo === "select" ? (
+            seccion.tipo === "texto" ? (
+              <div key={seccion.titulo} className="mb-4">
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                  {seccion.titulo}
+                </p>
+                <input
+                  type="text"
+                  value={seccion.valor}
+                  onChange={(e) => seccion.onCambio(e.target.value)}
+                  placeholder={seccion.placeholder}
+                  className="w-full rounded-md border border-zinc-300 px-2.5 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+            ) : seccion.tipo === "select" ? (
               <div key={seccion.titulo} className="mb-4">
                 <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-400">
                   {seccion.titulo}
