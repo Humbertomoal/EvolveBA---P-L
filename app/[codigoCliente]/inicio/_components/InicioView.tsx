@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconBuildingStore, IconTruck } from "@tabler/icons-react";
-import Link from "next/link";
+import { IconBuildingStore } from "@tabler/icons-react";
 
 const COMPRADOR_COOKIE = "cyrgo_comprador_id";
 const VER_TODO_ID = "__todos__";
@@ -84,12 +83,6 @@ export default function InicioView({
           <span className="text-base font-semibold">Entrar como Comprador</span>
         </button>
       )}
-
-      {/* ── Tarjeta Proveedor (sin cambios) ───────────────────────────── */}
-      <Link href={`${basePath}/proveedor`} className={CARD_BASE}>
-        <IconTruck className="h-8 w-8" />
-        <span className="text-base font-semibold">Entrar como Proveedor</span>
-      </Link>
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { auth } from "@/src/auth";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 
 const PUBLIC_PATHS = ["/login", "/cambiar-password", "/api/auth"];
-const SECCIONES_SIN_CLIENTE = ["/comprador", "/proveedor", "/inicio"];
+const SECCIONES_SIN_CLIENTE = ["/comprador", "/inicio"];
 
 export default auth((req) => {
   const { nextUrl } = req;

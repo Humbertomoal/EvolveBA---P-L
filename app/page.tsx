@@ -11,13 +11,7 @@ export default function Home() {
           href="/comprador"
           className="rounded-md bg-zinc-900 px-6 py-3 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-300"
         >
-          Entrar como Comprador
-        </Link>
-        <Link
-          href="/proveedor"
-          className="rounded-md border border-zinc-300 px-6 py-3 text-sm font-medium text-zinc-900 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-50 dark:hover:bg-zinc-900"
-        >
-          Entrar como Proveedor
+          Entrar
         </Link>
       </div>
       <p className="text-sm text-zinc-500 dark:text-zinc-400">

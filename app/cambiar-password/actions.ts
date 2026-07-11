@@ -51,8 +51,6 @@ export async function cambiarPasswordAction(
  await unstable_update({ user: { primerAcceso: false } } as any);
   console.log("Sesión JWT actualizada, primerAcceso=false");
 
-  const tipoUsuario = (session.user as any)?.tipoUsuario ?? "comprador";
-  const destino = tipoUsuario === "proveedor" ? "/proveedor" : "/comprador";
-  console.log("Redirigiendo a:", destino);
-  redirect(destino);
+  console.log("Redirigiendo a: /comprador");
+  redirect("/comprador");
 }

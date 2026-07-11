@@ -1,14 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { IconChevronDown, IconEye, IconLogout, IconMenu2 } from "@tabler/icons-react";
+import { IconLogout, IconMenu2 } from "@tabler/icons-react";
 import { usePageHeaderTitle } from "./PageHeaderContext";
 import { useSidebarState } from "./SidebarStateContext";
-
-const PROVEEDOR_COOKIE = "cyrgo_proveedor_id";
-const VISTA_COMPRADOR = "__comprador__";
-
-type Proveedor = { id: string; razonSocial: string };
 
 type UsuarioInfo = {
   nombre: string;
@@ -17,43 +11,14 @@ type UsuarioInfo = {
 };
 
 export default function TopBar({
-  esAdmin,
-  basePath,
-  proveedores,
-  vistaActual,
-  proveedorIdActual,
   usuario,
   logoutAction,
 }: {
-  esAdmin: boolean;
-  basePath: string;
-  proveedores: Proveedor[];
-  vistaActual: "comprador" | "proveedor";
-  proveedorIdActual?: string;
   usuario: UsuarioInfo;
   logoutAction: () => Promise<void>;
 }) {
-  const router = useRouter();
   const titulo = usePageHeaderTitle();
   const { toggleMobileOpen } = useSidebarState();
-
-  function handleChangeVista(e: React.ChangeEvent<HTMLSelectElement>) {
-    const val = e.target.value;
-
-    if (val === VISTA_COMPRADOR) {
-      if (vistaActual === "proveedor") {
-        router.push(`${basePath}/comprador`);
-      }
-      return;
-    }
-
-    document.cookie = `${PROVEEDOR_COOKIE}=${val}; path=/; max-age=86400; SameSite=Lax`;
-    if (vistaActual === "comprador") {
-      router.push(`${basePath}/proveedor/licitaciones`);
-    } else {
-      router.refresh();
-    }
-  }
 
   const iniciales = usuario.nombre
     .split(" ")
@@ -77,31 +42,6 @@ export default function TopBar({
       </div>
 
       <div className="flex items-center gap-3">
-        {esAdmin && (
-          <div className="flex items-center gap-1.5 rounded-[20px] border border-blue-200 bg-blue-50 py-1 pl-2.5 pr-1.5 text-sm text-blue-700">
-            <IconEye className="h-4 w-4 shrink-0" />
-            <span>Viendo como:</span>
-            <select
-              value={vistaActual === "proveedor" ? proveedorIdActual ?? "" : VISTA_COMPRADOR}
-              onChange={handleChangeVista}
-              className="cursor-pointer appearance-none bg-transparent pr-1 font-medium text-blue-700 focus:outline-none"
-            >
-              <option value={VISTA_COMPRADOR}>Comprador</option>
-              {proveedores.length > 0 && (
-                <option value="" disabled>
-                  ──────────────
-                </option>
-              )}
-              {proveedores.map((p: any)=> (
-                <option key={p.id} value={p.id}>
-                  {p.razonSocial}
-                </option>
-              ))}
-            </select>
-            <IconChevronDown className="h-3.5 w-3.5 shrink-0" />
-          </div>
-        )}
-
         {usuario.rolNombre && (
           <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-sm font-medium text-green-700">
             {usuario.rolNombre}

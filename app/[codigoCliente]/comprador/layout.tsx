@@ -1,16 +1,8 @@
 import {
-  IconArchive,
-  IconBox,
-  IconChartBar,
-  IconCheck,
-  IconClock,
   IconListDetails,
-  IconSend,
   IconSettings,
   IconShield,
-  IconTruck,
   IconUser,
-  IconUsers,
 } from "@tabler/icons-react";
 import SidebarNav from "@/app/_components/SidebarNav";
 import TopBar from "@/app/_components/TopBar";
@@ -20,7 +12,6 @@ import {
   CODIGO_CLIENTE_SIN_ESPECIFICAR,
   getClienteByCodigo,
 } from "@/src/lib/getClienteByCodigo";
-import { prisma } from "@/src/lib/prisma";
 import { logoutAction } from "@/src/lib/authActions";
 import { getUsuarioActual } from "@/src/lib/usuarioActual";
 
@@ -43,56 +34,9 @@ export default async function CompradorLayout({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
-  const [usuarioActual, proveedores] = await Promise.all([
-    getUsuarioActual(),
-    prisma.proveedor.findMany({
-      where: { eliminado: false },
-      select: { id: true, razonSocial: true },
-      orderBy: { razonSocial: "asc" },
-    }),
-  ]);
+  const usuarioActual = await getUsuarioActual();
 
   const NAV_ITEMS = [
-    {
-      href: `${basePath}/comprador/proveedores`,
-      label: "Administración de Proveedores",
-      icon: <IconUsers className={ICON_CLASSNAME} />,
-    },
-    {
-      href: `${basePath}/comprador/catalogo`,
-      label: "Catálogo de Productos",
-      icon: <IconBox className={ICON_CLASSNAME} />,
-    },
-    {
-      href: `${basePath}/comprador/licitaciones/lanzamiento`,
-      label: "Lanzamiento de Licitaciones",
-      icon: <IconSend className={ICON_CLASSNAME} />,
-    },
-    {
-      href: `${basePath}/comprador/licitaciones-proceso`,
-      label: "Licitaciones en Proceso",
-      icon: <IconClock className={ICON_CLASSNAME} />,
-    },
-    {
-      href: `${basePath}/comprador/seleccion-proveedores`,
-      label: "Selección de Proveedores",
-      icon: <IconCheck className={ICON_CLASSNAME} />,
-    },
-    {
-      href: `${basePath}/comprador/licitaciones-finalizadas`,
-      label: "Licitaciones Finalizadas",
-      icon: <IconArchive className={ICON_CLASSNAME} />,
-    },
-    {
-      href: `${basePath}/comprador/ordenes`,
-      label: "Órdenes de Compra",
-      icon: <IconTruck className={ICON_CLASSNAME} />,
-    },
-    {
-      href: `${basePath}/comprador/tablero`,
-      label: "Tablero de Indicadores",
-      icon: <IconChartBar className={ICON_CLASSNAME} />,
-    },
     {
       label: "Configuración",
       icon: <IconSettings className={ICON_CLASSNAME} />,
@@ -138,14 +82,7 @@ export default async function CompradorLayout({
         <PageHeaderProvider>
           <div className="flex min-w-0 flex-1 flex-col">
             {usuarioActual && (
-              <TopBar
-                esAdmin={usuarioActual.esAdmin || usuarioActual.esSupervisor}
-                basePath={basePath}
-                proveedores={proveedores}
-                vistaActual="comprador"
-                usuario={usuarioActual}
-                logoutAction={logoutAction}
-              />
+              <TopBar usuario={usuarioActual} logoutAction={logoutAction} />
             )}
             <main className="min-w-0 flex-1 bg-[#FEFBFB] p-4 sm:p-8">{children}</main>
           </div>

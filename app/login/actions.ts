@@ -52,36 +52,13 @@ export async function loginAction(
 
   // Set panel cookie before signIn throws redirect
   const cookieStore = await cookies();
-  if (tipoUsuario === "comprador") {
-    cookieStore.set("cyrgo_comprador_id", usuario.id, {
-      path: "/",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
-    });
-  } else if (tipoUsuario === "proveedor") {
-    // Look up linked Proveedor record
-    try {
-      const proveedor = await (prisma as any).proveedor.findFirst({
-        where: { usuarioId: usuario.id },
-        select: { id: true },
-      });
-      if (proveedor?.id) {
-        cookieStore.set("cyrgo_proveedor_id", proveedor.id, {
-          path: "/",
-          sameSite: "lax",
-          maxAge: 60 * 60 * 24 * 7,
-        });
-      }
-    } catch {
-      // Migration pending
-    }
-  }
+  cookieStore.set("cyrgo_comprador_id", usuario.id, {
+    path: "/",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 7,
+  });
 
-  const destino = primerAcceso
-    ? "/cambiar-password"
-    : tipoUsuario === "proveedor"
-    ? "/proveedor"
-    : "/comprador";
+  const destino = primerAcceso ? "/cambiar-password" : "/comprador";
 
   try {
     await signIn("credentials", { email, password, redirectTo: destino });
