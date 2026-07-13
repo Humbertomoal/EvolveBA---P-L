@@ -31,9 +31,9 @@ export default auth((req) => {
   );
 
   if (esSeccionSinCliente) {
-    return NextResponse.rewrite(
-      new URL(`/${CODIGO_CLIENTE_SIN_ESPECIFICAR}${pathname}`, nextUrl)
-    );
+    const rewritten = nextUrl.clone();
+    rewritten.pathname = `/${CODIGO_CLIENTE_SIN_ESPECIFICAR}${pathname}`;
+    return NextResponse.rewrite(rewritten);
   }
 
   return NextResponse.next();

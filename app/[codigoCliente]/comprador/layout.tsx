@@ -24,6 +24,7 @@ import {
 } from "@/src/lib/getClienteByCodigo";
 import { logoutAction } from "@/src/lib/authActions";
 import { getUsuarioActual } from "@/src/lib/usuarioActual";
+import { getPermisoModulo } from "@/src/lib/permisos";
 
 const ICON_CLASSNAME = "h-4 w-4 shrink-0";
 
@@ -45,22 +46,53 @@ export default async function CompradorLayout({
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
 
   const usuarioActual = await getUsuarioActual();
+  const [
+    permisoProyectos,
+    permisoPresupuestos,
+    permisoElementos,
+    permisoCostos,
+    permisoHorasHombre,
+    permisoEstimaciones,
+    permisoPnl,
+    permisoPersonal,
+    permisoConfiguracion,
+  ] = await Promise.all([
+    getPermisoModulo("proyectos"),
+    getPermisoModulo("presupuestos"),
+    getPermisoModulo("elementos"),
+    getPermisoModulo("costos"),
+    getPermisoModulo("horas-hombre"),
+    getPermisoModulo("estimaciones"),
+    getPermisoModulo("pnl"),
+    getPermisoModulo("personal"),
+    getPermisoModulo("configuracion"),
+  ]);
 
-  const NAV_ITEMS = [
+  type NavChildDef = { href: string; label: string; icon: React.ReactNode; ver: boolean };
+  type NavItemDef = NavChildDef | { label: string; icon: React.ReactNode; children: NavChildDef[] };
+
+  // Cada entrada declara el módulo de permisos que la gatea — si el rol no
+  // tiene "ver" en ese módulo, ni el link ni (para los grupos) la sección
+  // completa se renderizan. No basta con ocultar el contenido de la página:
+  // el propio link no debe aparecer.
+  const NAV_ITEMS_TODOS: NavItemDef[] = [
     {
       href: `${basePath}/comprador/proyectos`,
       label: "Proyectos",
       icon: <IconBuildingSkyscraper className={ICON_CLASSNAME} />,
+      ver: permisoProyectos.ver,
     },
     {
       href: `${basePath}/comprador/presupuestos`,
       label: "Presupuestos",
       icon: <IconClipboardList className={ICON_CLASSNAME} />,
+      ver: permisoPresupuestos.ver,
     },
     {
       href: `${basePath}/comprador/elementos`,
       label: "Elementos",
       icon: <IconRuler2 className={ICON_CLASSNAME} />,
+      ver: permisoElementos.ver,
     },
     {
       label: "Costos",
@@ -70,11 +102,13 @@ export default async function CompradorLayout({
           href: `${basePath}/comprador/costos`,
           label: "Registro de costos",
           icon: <IconReceipt2 className={ICON_CLASSNAME} />,
+          ver: permisoCostos.ver,
         },
         {
           href: `${basePath}/comprador/costos/nomina`,
           label: "Nómina",
           icon: <IconCash className={ICON_CLASSNAME} />,
+          ver: permisoCostos.ver,
         },
       ],
     },
@@ -82,16 +116,19 @@ export default async function CompradorLayout({
       href: `${basePath}/comprador/horas-hombre`,
       label: "Horas-hombre",
       icon: <IconClock className={ICON_CLASSNAME} />,
+      ver: permisoHorasHombre.ver,
     },
     {
       href: `${basePath}/comprador/estimaciones`,
       label: "Estimaciones",
       icon: <IconFileInvoice className={ICON_CLASSNAME} />,
+      ver: permisoEstimaciones.ver,
     },
     {
       href: `${basePath}/comprador/pnl`,
       label: "P&L",
       icon: <IconChartBar className={ICON_CLASSNAME} />,
+      ver: permisoPnl.ver,
     },
     {
       label: "Personal",
@@ -101,11 +138,13 @@ export default async function CompradorLayout({
           href: `${basePath}/comprador/personal/empleados`,
           label: "Empleados",
           icon: <IconUsers className={ICON_CLASSNAME} />,
+          ver: permisoPersonal.ver,
         },
         {
           href: `${basePath}/comprador/personal/cuadrillas`,
           label: "Cuadrillas",
           icon: <IconUsersGroup className={ICON_CLASSNAME} />,
+          ver: permisoPersonal.ver,
         },
       ],
     },
@@ -117,25 +156,39 @@ export default async function CompradorLayout({
           href: `${basePath}/comprador/configuracion/catalogos`,
           label: "Catálogos",
           icon: <IconListDetails className={ICON_CLASSNAME} />,
+          ver: permisoConfiguracion.ver,
         },
         {
           href: `${basePath}/comprador/configuracion/cuentas`,
           label: "Cuentas contables",
           icon: <IconReceipt2 className={ICON_CLASSNAME} />,
+          ver: permisoConfiguracion.ver,
         },
         {
           href: `${basePath}/comprador/configuracion/usuarios`,
           label: "Usuarios",
           icon: <IconUser className={ICON_CLASSNAME} />,
+          ver: permisoConfiguracion.ver,
         },
         {
           href: `${basePath}/comprador/configuracion/roles`,
           label: "Roles",
           icon: <IconShield className={ICON_CLASSNAME} />,
+          ver: permisoConfiguracion.ver,
         },
       ],
     },
   ];
+
+  const NAV_ITEMS: NavItemDef[] = [];
+  for (const item of NAV_ITEMS_TODOS) {
+    if ("children" in item) {
+      const children = item.children.filter((c) => c.ver);
+      if (children.length > 0) NAV_ITEMS.push({ ...item, children });
+    } else if (item.ver) {
+      NAV_ITEMS.push(item);
+    }
+  }
 
   return (
     <SidebarStateProvider>

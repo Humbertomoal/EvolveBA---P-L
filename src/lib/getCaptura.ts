@@ -1,4 +1,6 @@
+import type { ProjectStatus } from "@prisma/client";
 import { prisma } from "./prisma";
+import { calcularAvancePct } from "./avanceProyecto";
 import type { ElementoParaCapturaDTO } from "./capturaTypes";
 
 export async function getElementosParaCaptura(projectId: string): Promise<ElementoParaCapturaDTO[]> {
@@ -89,6 +91,57 @@ export async function getElementosConAvance(projectId: string): Promise<Elemento
       budgetItemId: e.budgetItemId,
     };
   });
+}
+
+export type ProyectoParaHorasHombreDTO = {
+  id: string;
+  code: string;
+  name: string;
+  clientName: string;
+  status: ProjectStatus;
+  avancePct: number;
+  horasAcumuladas: number;
+  ultimaCaptura: string | null;
+};
+
+// Entrada de /horas-hombre: lista de proyectos donde el supervisor puede
+// capturar, con h-h acumuladas y fecha de la última captura agregadas en BD
+// (mismo principio de la Fase 9: nunca traer TimeEntry completos a memoria
+// solo para sumarlos en JS).
+export async function getProyectosParaHorasHombre(clienteId = "default"): Promise<ProyectoParaHorasHombreDTO[]> {
+  const proyectos = await prisma.project.findMany({
+    where: { clienteId, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const [horasPorProyecto, ultimaPorProyecto] = await Promise.all([
+    prisma.timeEntry.groupBy({
+      by: ["projectId"],
+      where: { deletedAt: null, project: { clienteId } },
+      _sum: { hours: true },
+    }),
+    prisma.timeEntry.groupBy({
+      by: ["projectId"],
+      where: { deletedAt: null, project: { clienteId } },
+      _max: { date: true },
+    }),
+  ]);
+
+  const horasMap = new Map(horasPorProyecto.map((h) => [h.projectId, h._sum.hours?.toNumber() ?? 0]));
+  const ultimaMap = new Map(ultimaPorProyecto.map((u) => [u.projectId, u._max.date]));
+
+  return Promise.all(
+    proyectos.map(async (p) => ({
+      id: p.id,
+      code: p.code,
+      name: p.name,
+      clientName: p.clientName,
+      status: p.status,
+      avancePct: await calcularAvancePct(p.id),
+      horasAcumuladas: horasMap.get(p.id) ?? 0,
+      ultimaCaptura: ultimaMap.get(p.id)?.toISOString() ?? null,
+    }))
+  );
 }
 
 export type TimeEntryHistorialDTO = {

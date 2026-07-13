@@ -9,9 +9,15 @@ const TODOS_MODULOS = [
   "estimaciones", "pnl", "personal", "elementos", "captura", "configuracion",
 ];
 
-// captura: pantalla unificada de avance+horas — el Capturista la necesita para
-// su trabajo del día a día, igual que costos y horas-hombre.
-const MODULOS_CAPTURISTA = ["costos", "horas-hombre", "captura"];
+// captura: pantalla unificada de avance+horas — el Capturista (supervisor de
+// obra) la necesita para su trabajo del día a día, igual que horas-hombre.
+const MODULOS_CAPTURISTA = ["horas-hombre", "captura"];
+
+// costos/presupuestos/estimaciones/pnl: información financiera de la obra
+// (materia prima, subcontratos, márgenes) — un supervisor de campo no la
+// necesita para capturar horas y avance, y no debe verla ni siquiera de
+// lectura. configuracion: administración del sistema, tampoco es su trabajo.
+const MODULOS_SIN_ACCESO_CAPTURISTA = ["configuracion", "pnl", "costos", "presupuestos", "estimaciones"];
 
 async function upsertRol(
   clienteId: string,
@@ -66,20 +72,25 @@ export async function ensureUsuariosSeed(clienteId = "default") {
     }
   }
 
-  // ── Capturista: captura costos y horas-hombre, solo lectura en el resto ──
+  // ── Capturista: supervisor de obra. Captura horas-hombre y avance; ve el
+  // proyecto, su personal y sus elementos para poder capturar, pero no tiene
+  // ningún acceso a información financiera (costos, presupuestos,
+  // estimaciones, pnl) ni a configuración ──────────────────────────────────
   const capturista = await upsertRol(
     clienteId,
     "Capturista",
-    "Captura de costos y horas-hombre; solo lectura en el resto",
+    "Supervisor de obra: captura horas-hombre y avance; sin acceso a información financiera",
     false,
     false
   );
   for (const modulo of TODOS_MODULOS) {
-    if (modulo === "configuracion") {
+    if (MODULOS_SIN_ACCESO_CAPTURISTA.includes(modulo)) {
       await upsertPermiso(capturista.id, modulo, { ver: false, crear: false, editar: false, eliminar: false });
     } else if (MODULOS_CAPTURISTA.includes(modulo)) {
       await upsertPermiso(capturista.id, modulo, { ver: true, crear: true, editar: true, eliminar: false });
     } else {
+      // proyectos, personal, elementos: solo lectura, necesaria para ubicar
+      // el proyecto/cuadrilla/elemento correcto al capturar.
       await upsertPermiso(capturista.id, modulo, { ver: true, crear: false, editar: false, eliminar: false });
     }
   }

@@ -1,6 +1,8 @@
+import { notFound } from "next/navigation";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { getTodosLosCatalogos } from "@/src/lib/getCatalogos";
 import { ensureCatalogosSeed } from "@/src/lib/catalogosSeed";
+import { getPermisoModulo } from "@/src/lib/permisos";
 import CatalogosView from "./_components/CatalogosView";
 
 export default async function CatalogosPage({
@@ -12,6 +14,11 @@ export default async function CatalogosPage({
   const basePath =
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
   const clienteId = "default";
+
+  const permiso = await getPermisoModulo("configuracion");
+  if (!permiso.ver) {
+    notFound();
+  }
 
   try {
     await ensureCatalogosSeed(clienteId);

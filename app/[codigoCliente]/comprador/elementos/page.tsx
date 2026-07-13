@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { getElementTypes } from "@/src/lib/getElementTypes";
 import { getCatalogosActivos } from "@/src/lib/getCatalogos";
@@ -14,10 +15,14 @@ export default async function ElementosPage({
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
   const clienteId = "default";
 
-  const [elementos, familias, permiso] = await Promise.all([
+  const permiso = await getPermisoModulo("elementos");
+  if (!permiso.ver) {
+    notFound();
+  }
+
+  const [elementos, familias] = await Promise.all([
     getElementTypes(clienteId),
     getCatalogosActivos("TIPO_ELEMENTO", clienteId),
-    getPermisoModulo("elementos"),
   ]);
 
   return (

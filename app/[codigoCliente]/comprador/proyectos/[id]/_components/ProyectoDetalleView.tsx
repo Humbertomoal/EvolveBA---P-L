@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { IconArrowLeft, IconCalendar, IconCash, IconPercentage } from "@tabler/icons-react";
+import { IconArrowLeft, IconCash } from "@tabler/icons-react";
 import type {
   EmpleadoAsignadoDTO,
   EmpleadoParaAsignarDTO,
@@ -17,16 +18,21 @@ import type { CostoDTO } from "@/src/lib/costosTypes";
 import type { PresupuestoPartidaDTO } from "@/src/lib/presupuestoTypes";
 import type { PartidaSelectDTO } from "@/src/lib/getPresupuesto";
 import type { CostAccountDTO } from "@/src/lib/costAccountTypes";
+import type { EstimacionDTO } from "@/src/lib/estimacionesTypes";
+import type { ResumenFacturacionDTO } from "@/src/lib/getEstimaciones";
+import type { PnlProyectoDTO } from "@/src/lib/pnlTypes";
 import { formatImporte } from "@/src/lib/monedas";
 import { usePageTitle } from "@/app/_components/PageHeaderContext";
 import EmptyState from "@/src/components/EmptyState";
 import Badge, { type BadgeVariant } from "@/src/components/Badge";
 import PersonalTab from "./PersonalTab";
-import CapturaTab from "./CapturaTab";
+import CapturaTab from "../../../_components/CapturaTab";
 import ElementosTab from "./ElementosTab";
-import HorasTab from "./HorasTab";
+import HorasTab from "../../../_components/HorasTab";
 import CostosTab from "./CostosTab";
-import PresupuestoTab from "./PresupuestoTab";
+import PresupuestoTab from "../../../_components/PresupuestoTab";
+import EstimacionesTab from "./EstimacionesTab";
+import PnlTab from "./PnlTab";
 
 const ESTATUS_VARIANT: Record<ProyectoDetalleDTO["status"], BadgeVariant> = {
   PLANEACION: "info",
@@ -73,6 +79,7 @@ export default function ProyectoDetalleView({
   permisoCaptura,
   permisoHorasHombre,
   permisoPresupuesto,
+  permisoCostos,
   elementosParaCaptura,
   elementosConAvance,
   historialHoras,
@@ -82,6 +89,11 @@ export default function ProyectoDetalleView({
   presupuesto,
   partidasSelect,
   cuentas,
+  permisoEstimaciones,
+  estimaciones,
+  resumenFacturacion,
+  permisoPnl,
+  pnl,
   clienteId,
   basePath,
 }: {
@@ -93,6 +105,7 @@ export default function ProyectoDetalleView({
   permisoCaptura: PermisoModulo;
   permisoHorasHombre: PermisoModulo;
   permisoPresupuesto: PermisoModulo;
+  permisoCostos: PermisoModulo;
   elementosParaCaptura: ElementoParaCapturaDTO[];
   elementosConAvance: ElementoConAvanceDTO[];
   historialHoras: TimeEntryHistorialDTO[];
@@ -102,12 +115,27 @@ export default function ProyectoDetalleView({
   presupuesto: PresupuestoPartidaDTO[];
   partidasSelect: PartidaSelectDTO[];
   cuentas: CostAccountDTO[];
+  permisoEstimaciones: PermisoModulo;
+  estimaciones: EstimacionDTO[];
+  resumenFacturacion: ResumenFacturacionDTO;
+  permisoPnl: PermisoModulo;
+  pnl: PnlProyectoDTO | null;
   clienteId: string;
   basePath: string;
 }) {
   usePageTitle(proyecto.name);
-  const [tab, setTab] = useState<TabKey>("resumen");
+  const searchParams = useSearchParams();
+  const tabInicial = TABS.find((t) => t.key === searchParams.get("tab"))?.key ?? "resumen";
+  const [tab, setTab] = useState<TabKey>(tabInicial);
   const [elementoCapturaPreseleccionado, setElementoCapturaPreseleccionado] = useState<string | null>(null);
+
+  const tabsVisibles = TABS.filter((t) => {
+    if (t.key === "presupuesto") return permisoPresupuesto.ver;
+    if (t.key === "costos") return permisoCostos.ver;
+    if (t.key === "estimaciones") return permisoEstimaciones.ver;
+    if (t.key === "pnl") return permisoPnl.ver;
+    return true;
+  });
 
   function irACaptura(elementId: string) {
     setElementoCapturaPreseleccionado(elementId);
@@ -135,7 +163,7 @@ export default function ProyectoDetalleView({
 
       <div className="border-b border-zinc-200">
         <div className="flex gap-0 overflow-x-auto">
-          {TABS.map((t) => (
+          {tabsVisibles.map((t) => (
             <button
               key={t.key}
               type="button"
@@ -154,11 +182,16 @@ export default function ProyectoDetalleView({
 
       {tab === "resumen" && (
         <div className="space-y-6">
-          <div className="grid grid-cols-4 gap-4">
-            <Card icon={<IconCash className="h-5 w-5" />} label="Contrato" valor={formatImporte(proyecto.contractAmount, "MXN")} />
-            <Card icon={<IconCash className="h-5 w-5" />} label="Anticipo" valor={formatImporte(proyecto.advanceAmount, "MXN")} />
-            <Card icon={<IconPercentage className="h-5 w-5" />} label="Retención" valor={`${proyecto.retentionPct}%`} />
-            <Card icon={<IconCalendar className="h-5 w-5" />} label="Días transcurridos" valor={String(diasTranscurridos(proyecto.startDate))} />
+          <div className="grid grid-cols-3 gap-4">
+            <Card icon={<IconCash className="h-5 w-5" />} label="Contrato" valor={formatImporte(resumenFacturacion.contractAmount, "MXN")} />
+            <Card icon={<IconCash className="h-5 w-5" />} label="Facturado" valor={`${formatImporte(resumenFacturacion.facturado, "MXN")} (${resumenFacturacion.contractAmount > 0 ? Math.round((resumenFacturacion.facturado / resumenFacturacion.contractAmount) * 1000) / 10 : 0}%)`} />
+            <Card icon={<IconCash className="h-5 w-5" />} label="Por facturar" valor={formatImporte(resumenFacturacion.porFacturar, "MXN")} />
+            <Card icon={<IconCash className="h-5 w-5" />} label="Anticipo" valor={formatImporte(resumenFacturacion.advanceAmount, "MXN")} />
+            <Card icon={<IconCash className="h-5 w-5" />} label="Amortizado" valor={formatImporte(resumenFacturacion.amortizado, "MXN")} />
+            <Card icon={<IconCash className="h-5 w-5" />} label="Saldo anticipo" valor={formatImporte(resumenFacturacion.saldoAnticipo, "MXN")} />
+            <div className="col-span-3">
+              <Card icon={<IconCash className="h-5 w-5" />} label="Retenido acumulado" valor={formatImporte(resumenFacturacion.retenidoAcumulado, "MXN")} />
+            </div>
           </div>
 
           <div className="rounded-card border border-border bg-white p-5 shadow-card">
@@ -168,6 +201,8 @@ export default function ProyectoDetalleView({
               <Ficha label="Avance" valor={`${proyecto.avancePct}%`} />
               <Ficha label="Fecha de inicio" valor={formatFecha(proyecto.startDate)} />
               <Ficha label="Fecha de fin" valor={proyecto.endDate ? formatFecha(proyecto.endDate) : "—"} />
+              <Ficha label="Retención contractual" valor={`${proyecto.retentionPct}%`} />
+              <Ficha label="Días transcurridos" valor={String(diasTranscurridos(proyecto.startDate))} />
             </dl>
             {proyecto.notes && (
               <div className="mt-4 border-t border-zinc-100 pt-4">
@@ -190,7 +225,7 @@ export default function ProyectoDetalleView({
         />
       )}
 
-      {tab === "presupuesto" && (
+      {tab === "presupuesto" && permisoPresupuesto.ver && (
         <PresupuestoTab
           projectId={proyecto.id}
           partidas={presupuesto}
@@ -233,9 +268,22 @@ export default function ProyectoDetalleView({
         />
       )}
 
-      {tab === "costos" && (
+      {tab === "costos" && permisoCostos.ver && (
         <CostosTab costos={costosProyecto} moAplicada={moAplicada} cuentaNominaOperativa={cuentaNominaOperativa} />
       )}
+
+      {tab === "estimaciones" && permisoEstimaciones.ver && (
+        <EstimacionesTab
+          projectId={proyecto.id}
+          estimaciones={estimaciones}
+          contractAmount={resumenFacturacion.contractAmount}
+          facturado={resumenFacturacion.facturado}
+          permiso={permisoEstimaciones}
+          clienteId={clienteId}
+        />
+      )}
+
+      {tab === "pnl" && permisoPnl.ver && <PnlTab pnl={pnl} />}
 
       {tab !== "resumen" &&
         tab !== "personal" &&
@@ -243,7 +291,9 @@ export default function ProyectoDetalleView({
         tab !== "elementos" &&
         tab !== "captura" &&
         tab !== "horas" &&
-        tab !== "costos" && (
+        tab !== "costos" &&
+        tab !== "estimaciones" &&
+        tab !== "pnl" && (
           <EmptyState
             icon="IconClock"
             title="Disponible en próxima fase"

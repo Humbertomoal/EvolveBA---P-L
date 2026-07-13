@@ -55,7 +55,10 @@ no un bug de esta fase.
   pertenecer a una `Crew` (`crewId`) y/o liderarla (`isLeader`, relación `leads`).
 - `TimeEntry` — horas capturadas de mano de obra **propia**; opcionalmente ligadas
   a un `Element` (`elementId`).
-- `Estimate` — estimaciones de avance de obra; devengan el ingreso.
+- `Estimate` — estimaciones de avance de obra; devengan el ingreso. `progressPct`
+  es el avance acumulado CALCULADO (`calcularAvancePct`, regla #8) al momento de
+  crear/editar, nunca capturable a mano. `grossAmountManual` (Fase 8) marca si
+  el bruto fue sobrescrito manualmente en vez de tomarse del cálculo.
 - `Crew` — cuadrilla. `leaderId` es `@unique`: un empleado lidera como máximo una
   cuadrilla (constraint de BD, no validación de app). `Employee.crewId` es un
   escalar simple: un empleado pertenece a una sola cuadrilla (también por diseño
@@ -135,11 +138,23 @@ no un bug de esta fase.
     "Nómina Operativa" (regla #11): si el dato existe en otro lado, no se
     teclea. Evita que el presupuesto de material se despegue del alcance
     físico real capturado en Elementos.
+15. **EL AVANCE DE UNA ESTIMACIÓN NUNCA RETROCEDE.** El avance del periodo
+    (`progressPct` acumulado actual − `progressPct` de la última estimación
+    `AUTORIZADA`/`PAGADA`) no puede ser negativo — no se puede "desavanzar".
+    Si el avance acumulado calculado es menor al de la última estimación
+    aceptada, se bloquea con un mensaje legible
+    (`validarAvanceNoNegativo` en `estimacionesTypes.ts`), nunca un 500.
+16. **AMORTIZACIÓN DE ANTICIPO, con tope.** `amortización = bruto ×
+    (Project.advanceAmount / Project.contractAmount)`, pero JAMÁS más de lo
+    que quede por amortizar: se topa contra
+    `advanceAmount − Σ Estimate.advanceAmort` de las estimaciones ya
+    `AUTORIZADA`/`PAGADA` (las en Borrador/Enviada no cuentan — todavía
+    podrían no concretarse). Si `advanceAmount = 0`, la amortización es 0.
 
-### Fórmulas del P&L (documentadas, aún no implementadas — Fase 8+)
+### Fórmulas del P&L (documentadas, aún no implementadas — Fase 9+)
 
 ```
-Ingreso            = Σ Estimate.grossAmount  WHERE status IN (AUTORIZADA, PAGADA)
+Ingreso            = Σ Estimate.grossAmount  WHERE status IN (AUTORIZADA, PAGADA)   [implementado, Fase 8]
 Costo real (obra)  = Σ Cost.amount (cuentas nivel 2) + Σ TimeEntry.amount (MO aplicada)
 Presupuesto        = Σ BudgetItem.amount
 Margen bruto       = Ingreso − Costo real (obra)          [regla #13, sin prorrateo de fijos]
@@ -168,8 +183,22 @@ Módulos: `proyectos`, `presupuestos`, `costos`, `horas-hombre`, `estimaciones`,
 - **Gerente:** ver+crear+editar (sin eliminar) en todos los módulos operativos;
   solo lectura en `pnl` (dashboard calculado, nada que crear/editar); sin acceso a
   `configuracion`.
-- **Capturista:** solo lectura en todo, excepto escritura (sin eliminar) en
-  `costos` y `horas-hombre`; sin acceso a `configuracion`.
+- **Capturista (supervisor de obra, Fase 10):** ver+crear+editar (sin eliminar)
+  en `horas-hombre` y `captura` — su trabajo del día a día es capturar horas y
+  avance, no información financiera. Solo lectura en `proyectos`, `personal` y
+  `elementos` (necesaria para ubicar el proyecto/cuadrilla/elemento correcto al
+  capturar). Sin ningún acceso — ni de lectura — a `costos`, `presupuestos`,
+  `estimaciones`, `pnl` ni `configuracion`: son datos financieros de la obra
+  (materia prima, subcontratos, márgenes) que no le corresponden a un
+  supervisor de campo.
+
+Cada ruta del sidebar valida su propio `permiso.ver` en el servidor
+(`notFound()` si falta) — no basta con ocultar el link o el botón; tecleada a
+mano, la URL debe rebotar igual. Mismo patrón en las 9+ páginas listadas en
+`comprador/` (proyectos, presupuestos, elementos, costos, costos/nomina,
+horas-hombre, estimaciones, personal/empleados, personal/cuadrillas,
+configuracion/*). El sidebar (`layout.tsx`) además oculta cada link/grupo cuyo
+módulo no tenga `ver` — doble candado, igual que "Nómina Operativa" en costos.
 
 ## Estado (Fase 0)
 
@@ -408,3 +437,232 @@ Módulos: `proyectos`, `presupuestos`, `costos`, `horas-hombre`, `estimaciones`,
   correcto de la fuente correcta (Cost para la cuenta normal, TimeEntry
   para Nómina Operativa). Datos de prueba (2 `Element`, 1 `TimeEntry`, 1
   `Cost`, 1 partida con 3 líneas) limpiados al terminar.
+
+## Estado (Fase 8)
+
+- Tab **Estimaciones** del proyecto: pasó de placeholder a real. Lista
+  (# · Periodo · Avance · Bruto · Retención · Amortiz. · Neto · Estatus) con
+  footer "Facturado acumulado". Modal de alta/edición (`EstimacionModal.tsx`)
+  con preview en vivo (debounce 300ms + guard de "última petición gana", mismo
+  patrón `requestIdRef` que `CapturaTab` desde Fase 5): el avance acumulado se
+  muestra como texto, nunca como input — es imposible teclearlo.
+- Pipeline de cálculo único (`calcularEstimacion` en `estimacionesActions.ts`)
+  compartido entre el preview (`previsualizarEstimacionAction`, solo lectura)
+  y el guardado autoritativo (`crearEstimacionAction`/`actualizarEstimacionAction`,
+  dentro de transacción) — el cliente nunca manda avance/montos calculados, solo
+  periodo y, opcionalmente, el bruto sobrescrito.
+- Reglas #15 (avance nunca retrocede) y #16 (amortización con tope) documentadas
+  arriba. Flujo de estados BORRADOR → ENVIADA → AUTORIZADA → PAGADA con
+  `enviarEstimacionAction`/`autorizarEstimacionAction`/`marcarPagadaEstimacionAction`;
+  "regresar a Borrador" (`regresarABorradorAction`) exige `permiso.eliminar`
+  (el único distintivo de Administrador vs. Gerente en este sistema) y limpia
+  `authorizedAt`/`paidAt` porque dejan de ser válidos.
+- Ficha del proyecto (tab Resumen): grid de 7 cards nuevas (Contrato, Facturado,
+  Por facturar, Anticipo, Amortizado, Saldo anticipo, Retenido acumulado) vía
+  `getResumenFacturacion()` — reemplazó el grid de 4 cards de Fase 2; Retención
+  % y Días transcurridos se movieron a la "Ficha del proyecto" (dl) para no
+  perderlos.
+- Módulo global `/estimaciones`: pasó de placeholder a lista de cobranza de
+  TODAS las estimaciones de todos los proyectos, con filtros (proyecto,
+  estatus, rango de fechas) y totales (facturado, retenido, por cobrar —
+  este último solo `AUTORIZADA` sin pagar, la cuenta por cobrar real).
+- Permisos: el módulo `estimaciones` ya tenía la matriz exacta pedida
+  (Admin T, Gerente E, Capturista V) desde Fase 0 — cero cambios en
+  `usuariosSeed.ts`. "Autorizar/marcar pagada: solo T o E" se resuelve solo
+  con `permiso.editar` (V de Capturista no lo tiene); "regresar a Borrador:
+  solo T" se resuelve con `permiso.eliminar` (nadie más que Admin lo tiene en
+  todo el sistema).
+- Cambio de schema no pedido explícitamente: `Estimate.grossAmountManual`
+  (booleano) — necesario para poder mostrar "sobrescrito manualmente" en la
+  UI sin ambigüedad; sin este campo no había forma de distinguir un bruto
+  calculado que por coincidencia diera el mismo número que uno tecleado a
+  mano.
+- **Bug real encontrado y corregido en esta fase:** el modal de nueva
+  estimación inicializaba `periodStart` y `periodEnd` los dos en la fecha de
+  HOY — un rango inválido (`periodStart` debe ser antes que `periodEnd`), así
+  que toda estimación nueva nacía mostrando el error de validación de periodo
+  en vez del preview, obligando al usuario a tocar una fecha antes de poder
+  ver nada. Se corrigió con un default sensato: el mes calendario actual
+  completo (mismo formato que el ejemplo del enunciado, "01-31 Jul 2026").
+  Encontrado verificando con Playwright, no reportado por el usuario.
+- Verificado con Playwright (`test.describe.serial`, 5 tests con `expect()`
+  reales): el avance acumulado se pre-calcula desde los elementos y se
+  muestra como texto no editable, con los montos exactos del ejemplo del
+  enunciado (bruto $1,800,000, retención $90,000, amortización $360,000,
+  neto $1,350,000 sobre un contrato de $4,500,000 con 40% de avance); una
+  estimación Autorizada ya no muestra botón Editar; la amortización topa
+  correctamente contra el saldo de anticipo disponible ($540,000) en vez
+  del cálculo sin tope ($600,000); el avance del periodo negativo se
+  bloquea con el mensaje exacto pedido; y "Facturado acumulado" solo cuenta
+  estimaciones Autorizada/Pagada. Datos de prueba (1 `Element`, hasta 2
+  `Estimate`) limpiados al terminar.
+
+## Estado (Fase 9)
+
+- **Tab P&L del proyecto (Parte A):** pasó de placeholder a real —
+  `getPnlProyecto()` en `getPnl.ts` junta ingreso (Estimate), costo directo
+  (Cost), MO aplicada (TimeEntry), presupuesto (BudgetItem vía
+  `getPresupuestoProyecto`, reutilizado tal cual porque ya resuelve la línea
+  calculada de Materia Prima — regla #14) en un solo DTO. Desglose por cuenta
+  con presupuesto/% de consumo/semáforo, MARGEN BRUTO, CONTROL PRESUPUESTAL
+  (desviación) y PROYECCIÓN AL CIERRE (EAC) con alerta roja grande si el
+  margen proyectado es negativo. Donut de composición de costo (recharts,
+  primera vez que se usa en el repo — ya estaba en `package.json`).
+- **Módulo `/pnl` (Parte B + C):** dos vistas en tabs —
+  **Comparativo de proyectos** (tabla ordenable por columna, clic en un
+  renglón navega a `?tab=pnl` del proyecto — se agregó lectura de
+  `useSearchParams` en `ProyectoDetalleView` para que el tab inicial respete
+  la URL, algo que no existía antes) con gráfica de barras Ingreso/Costo
+  real/Presupuesto por proyecto; y **P&L de Empresa** (Estado de Resultados
+  con filtro de periodo mes/trimestre/año/rango custom, línea de evolución
+  mensual). `getComparativoProyectos()` reutiliza `getPnlProyecto()` por
+  proyecto vía `Promise.all` (paralelo, no secuencial) en vez de duplicar la
+  fórmula del margen/EAC en dos lugares — el número de proyectos activos es
+  chico, no justifica una consulta cross-proyecto más compleja.
+- **Regla #12 (MO ociosa) implementada de verdad por primera vez:**
+  `calcularMoOciosa()` en `pnlTypes.ts` = `PayrollPeriod(OPERATIVA)` del
+  periodo − `Σ TimeEntry` de TODOS los proyectos en ese periodo (empresa
+  completa, nunca por proyecto). Vive únicamente en el P&L de Empresa —
+  verificado con Playwright que el comparativo de proyectos y el P&L por
+  proyecto NUNCA la suman al costo real de una obra.
+- **Optimización de queries (regla explícita de esta fase):** se corrigieron
+  dos funciones heredadas de fases anteriores que traían filas completas a
+  memoria para sumarlas en JS —
+  `getManoDeObraAplicadaProyecto`/`getResumenFacturacion`— ahora usan
+  `prisma.aggregate`. Se agregaron `getCostoDirectoProyecto` y
+  `getCostosPorCuentaProyecto` (`groupBy`) en `getCostos.ts`. Todas las
+  sumas del P&L (por proyecto, comparativo, y empresa) se agregan en BD.
+- **Permisos:** el módulo `pnl` ya tenía Admin=T y Gerente=V desde Fase 0;
+  se agregó el caso faltante — Capturista pasó de ver=true (heredado del
+  branch genérico) a ver=false explícito, y el link "P&L" del sidebar ahora
+  se filtra server-side según ese permiso (`layout.tsx`), cumpliendo "oculta
+  el módulo" literalmente y no solo a nivel de contenido de página. La
+  distinción Parte A (Admin+Gerente) vs. Parte B (solo Admin) se resolvió
+  con `permiso.eliminar` como señal de "es Administrador" — mismo patrón que
+  "regresar a Borrador" en Estimaciones (Fase 8), sin inventar una dimensión
+  de permiso nueva.
+- Verificado con Playwright (`test.describe.serial`, 4 tests con `expect()`
+  reales, más una verificación directa contra BD): en el tab P&L del
+  proyecto, "Nómina Operativa" (2.8) muestra exactamente el monto del
+  `TimeEntry` de prueba y NUNCA pudo venir de `Cost` (se confirmó además que
+  cero filas de `Cost` existen con esa cuenta — estructuralmente imposible
+  desde Fase 6); ingreso/costo real/margen bruto/EAC cuadran exactamente con
+  los números calculados a mano; en el P&L de Empresa, la MO ociosa se
+  calcula correctamente y la utilidad neta cuadra; y el comparativo de
+  proyectos muestra el costo real SIN la ociosidad sumada (180,000, nunca
+  200,000). Datos de prueba (1 `Element`, 1 `TimeEntry`, 2 `Cost`, 1
+  `Estimate`, 1 `PayrollPeriod`) limpiados al terminar.
+
+## Estado (Fase 10)
+
+- **Entry points del sidebar, por naturaleza del trabajo.** Los módulos
+  vacíos (`horas-hombre`, `presupuestos`) pasaron de placeholder a un patrón
+  de dos vistas: lista de proyectos (`PanelFiltros`, clic en un renglón) →
+  vista de un solo proyecto en `/horas-hombre/[projectId]` y
+  `/presupuestos/[projectId]`. Este patrón es correcto SOLO cuando el trabajo
+  es intrínsecamente "por proyecto" (un supervisor captura horas de UNA obra
+  a la vez). `costos` y `estimaciones` son transversales por naturaleza (la
+  pregunta "¿qué tengo por cobrar/gastado?" cruza todos los proyectos) y NO
+  se tocaron — seguían funcionando desde Fases 6/8, solo les faltaba el gate
+  server-side (ver abajo). `elementos` (catálogo maestro) tampoco se tocó.
+- **Componentes de tab extraídos a `comprador/_components/`** (antes vivían
+  solo dentro de `proyectos/[id]/_components/`, atados al detalle de
+  proyecto): `CapturaTab` + sus paneles (`PanelHoras`, `PanelAvance`),
+  `HorasTab` y `PresupuestoTab`. Todos ya eran autocontenidos (reciben
+  `projectId`/`clienteId`/datos/`permiso` por props, sin depender del estado
+  de `ProyectoDetalleView`), así que la extracción fue mover archivo + ajustar
+  imports, sin reescribir lógica — se reutilizan tal cual tanto en el tab del
+  detalle de proyecto como en `/horas-hombre/[projectId]` y
+  `/presupuestos/[projectId]`.
+- **`/horas-hombre` agrega `getProyectosParaHorasHombre`** (`getCaptura.ts`):
+  h-h acumuladas y fecha de última captura por proyecto, agregadas en BD
+  (`groupBy` + `_sum`/`_max`, mismo principio de Fase 9 — nunca traer
+  `TimeEntry` completos a memoria solo para sumarlos en JS). Filtro de
+  estatus nace en `EN_CURSO` (opt-in a ver el resto): es la vista de trabajo
+  diario, no el archivo histórico.
+- **Matriz de permisos de Capturista, redefinida.** El rol pasó de "captura
+  costos y horas-hombre, solo lectura en el resto" a un supervisor de campo
+  puro: `horas-hombre`+`captura` con escritura (sin eliminar);
+  `proyectos`+`personal`+`elementos` solo lectura (necesaria para ubicar
+  qué capturar); **sin ningún acceso — ni de lectura —** a `costos`,
+  `presupuestos`, `estimaciones`, `pnl` ni `configuracion`. Antes tenía
+  lectura en `presupuestos`/`estimaciones` y control total de `costos`;
+  ese acceso se retiró porque expone materia prima, subcontratos y márgenes
+  de la obra, información que no le corresponde a un rol de campo. Ver
+  matriz completa en la sección "Permisos" arriba.
+- **Gateo de tabs del detalle de proyecto, por permiso real (regla de
+  seguridad de esta fase).** Antes solo el tab P&L se ocultaba según
+  permiso; Presupuesto/Costos/Estimaciones se renderizaban siempre,
+  visibles para cualquiera con acceso al proyecto (Capturista incluido).
+  Ahora los cuatro tabs financieros se filtran de `tabsVisibles` por su
+  propio `permiso*.ver` (se agregó `permisoCostos`, antes no existía a nivel
+  de tab). Defensa en profundidad, no solo UI: `proyectos/[id]/page.tsx`
+  (server) solo hace `getPresupuestoProyecto`/`getCostosProyecto`/
+  `getManoDeObraAplicadaProyecto`/`getEstimacionesProyecto`/`getPnlProyecto`
+  cuando el permiso correspondiente tiene `ver` — si no, el dato ni siquiera
+  viaja en el payload al cliente (antes `pnl` se calculaba y enviaba siempre,
+  aunque el tab no lo renderizara). Además, si la URL trae
+  `?tab=presupuesto|costos|estimaciones|pnl` sin permiso, la página
+  redirige server-side antes de renderizar nada (rebote real, no solo un
+  tab vacío).
+- **Auditoría completa de gate server-side en las rutas del sidebar.** A
+  partir del hallazgo de que `/estimaciones` (lista de cobranza, Fase 8) no
+  tenía NINGÚN chequeo de permiso — cualquier usuario autenticado podía
+  teclear la URL y ver todas las estimaciones de todos los proyectos — se
+  revisaron las ~20 páginas de `comprador/`. Varias solo pasaban `permiso`
+  a su vista para ocultar botones de crear/editar, pero nunca bloqueaban el
+  acceso a la página en sí (`proyectos`, `elementos`, `costos`,
+  `costos/nomina`, `configuracion/cuentas`); otras tres no fetcheaban
+  `permiso` en absoluto (`personal/empleados`, `personal/cuadrillas`,
+  `personal/cuadrillas/[id]`, `configuracion/catalogos`,
+  `configuracion/roles`, `configuracion/usuarios` — este último expone alta
+  de usuarios y asignación de roles, el hallazgo más serio de la auditoría).
+  Las 10 páginas se corrigieron con el mismo patrón ya usado en `pnl/page.tsx`
+  desde Fase 9: `const permiso = await getPermisoModulo(...); if
+  (!permiso.ver) notFound();` antes de cualquier fetch de datos.
+- **Sidebar generalizado.** `layout.tsx` filtraba antes solo el link de P&L;
+  ahora cada entrada (y cada hijo dentro de un grupo) declara su módulo de
+  permisos y se oculta si falta `ver` — un grupo (Costos/Personal/
+  Configuración) desaparece completo si ninguno de sus hijos es visible.
+- **Bug real encontrado y corregido en esta fase (`proxy.ts`, no relacionado
+  al pedido original pero bloqueaba el rebote server-side pedido).** El
+  rewrite que agrega el código de cliente por default
+  (`NextResponse.rewrite(new URL(`/${CODIGO}${pathname}`, nextUrl))`)
+  construía la URL destino solo con el pathname, sin el `search` — por cómo
+  resuelve `URL` una referencia absoluta de ruta, el query string se perdía
+  por completo en CADA request bajo `/comprador/*` e `/inicio/*` (o sea,
+  toda la app). `searchParams` en cualquier Server Component de esas
+  secciones venía siempre vacío sin importar la URL real en el navegador —
+  el rebote `?tab=pnl` que se agregó en esta fase nunca redirigía porque el
+  `tab` que el servidor leía era siempre `undefined`. Se corrigió clonando
+  `nextUrl` (`nextUrl.clone()`) y solo reescribiendo `pathname`, en vez de
+  construir la URL desde cero. Encontrado con Playwright (el debug log del
+  servidor mostraba `tab: undefined` para una request con `?tab=pnl` en la
+  URL), no reportado por el usuario.
+- Verificado con Playwright end-to-end contra el dev server real (44
+  aserciones, usuarios de prueba Capturista/Gerente creados y borrados al
+  terminar): sidebar de Capturista muestra solo Proyectos/Elementos/
+  Horas-hombre/Personal y oculta Presupuestos/Costos(+Nómina)/Estimaciones/
+  P&L/Configuración; tabs del detalle de proyecto filtrados igual;
+  `?tab=pnl|costos|presupuesto|estimaciones` tecleado a mano rebota al
+  servidor (limpia el query string) antes de renderizar; acceso directo a
+  `/presupuestos`, `/costos`, `/configuracion/usuarios`, `/estimaciones`,
+  `/pnl` renderiza el boundary `not-found` (nota: este dev server con
+  Turbopack responde HTTP 200 aunque `notFound()` se haya disparado — el
+  payload SSR sí trae `digest: NEXT_HTTP_ERROR_FALLBACK;404` y el
+  `<meta name="next-error" content="not-found">`, confirmado con curl; el
+  contenido protegido nunca se renderiza, es una particularidad del status
+  code en dev, no una fuga real); `/horas-hombre` lista proyectos y navega a
+  `/horas-hombre/[id]` con Captura+Horas únicamente y "Volver a proyectos"
+  funcional; como Gerente, `/presupuestos` sigue el mismo patrón reusando
+  `PresupuestoTab`, y `/estimaciones` conserva la lista de cobranza cruzada
+  intacta.
+- **Hallazgo, no corregido (fuera de alcance de esta fase, reportado al
+  usuario):** `crearUsuarioAction`/`actualizarUsuarioAction`
+  (`usuariosActions.ts`) guardan `Usuario.password` tal cual viene del
+  formulario ("Passwords stored as-is for this MVP" dice el comentario
+  original), pero el login (`app/login/actions.ts`) compara con
+  `bcrypt.compare`. Cualquier usuario creado o con contraseña cambiada desde
+  Configuración → Usuarios queda con una contraseña que nunca podrá volver a
+  iniciar sesión (bcrypt.compare falla contra texto plano). Preexistente,
+  no tocado — no estaba en el alcance de esta fase.

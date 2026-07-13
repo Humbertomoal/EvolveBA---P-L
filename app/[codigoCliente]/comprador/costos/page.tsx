@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { getCostos } from "@/src/lib/getCostos";
 import { getCostAccounts } from "@/src/lib/getCostAccounts";
 import { getProyectos } from "@/src/lib/getProyectos";
@@ -8,12 +9,16 @@ import CostosView from "./_components/CostosView";
 export default async function CostosPage() {
   const clienteId = "default";
 
-  const [costos, cuentas, proyectos, elementos, permiso] = await Promise.all([
+  const permiso = await getPermisoModulo("costos");
+  if (!permiso.ver) {
+    notFound();
+  }
+
+  const [costos, cuentas, proyectos, elementos] = await Promise.all([
     getCostos(clienteId),
     getCostAccounts(clienteId),
     getProyectos(clienteId),
     getElementosTodosProyectos(clienteId),
-    getPermisoModulo("costos"),
   ]);
 
   return (

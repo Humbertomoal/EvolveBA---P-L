@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
@@ -257,8 +257,8 @@ export default function PresupuestoTab({
                   const desv = desviacion(p.real, p.amount);
                   const pct = pctConsumo(p.real, p.amount);
                   return (
-                    <>
-                      <tr key={p.id} className="bg-zinc-50/70 font-semibold text-zinc-800">
+                    <Fragment key={p.id}>
+                      <tr className="bg-zinc-50/70 font-semibold text-zinc-800">
                         <td className="px-3 py-2.5">
                           <button type="button" onClick={() => toggle(p.id)} className="flex items-center gap-1.5">
                             {abierta ? <IconChevronDown className="h-4 w-4 text-zinc-400" /> : <IconChevronRight className="h-4 w-4 text-zinc-400" />}
@@ -357,7 +357,7 @@ export default function PresupuestoTab({
                             </tr>
                           );
                         })}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>

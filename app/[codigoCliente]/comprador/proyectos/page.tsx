@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { CODIGO_CLIENTE_SIN_ESPECIFICAR } from "@/src/lib/getClienteByCodigo";
 import { getProyectos } from "@/src/lib/getProyectos";
 import { getCatalogosActivos } from "@/src/lib/getCatalogos";
@@ -14,10 +15,14 @@ export default async function ProyectosPage({
     codigoCliente === CODIGO_CLIENTE_SIN_ESPECIFICAR ? "" : `/${codigoCliente}`;
   const clienteId = "default";
 
-  const [proyectos, tipos, permiso] = await Promise.all([
+  const permiso = await getPermisoModulo("proyectos");
+  if (!permiso.ver) {
+    notFound();
+  }
+
+  const [proyectos, tipos] = await Promise.all([
     getProyectos(clienteId),
     getCatalogosActivos("TIPO_PROYECTO", clienteId),
-    getPermisoModulo("proyectos"),
   ]);
 
   return (

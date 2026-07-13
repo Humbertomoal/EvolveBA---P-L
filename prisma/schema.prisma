@@ -205,6 +205,7 @@ model Estimate {
   periodEnd    DateTime       @db.Date
   progressPct  Decimal        @db.Decimal(5, 2) // % avance acumulado
   grossAmount  Decimal        @db.Decimal(14, 2) // avance del periodo (INGRESO)
+  grossAmountManual Boolean   @default(false) // true = el usuario sobrescribió el bruto calculado (Fase 8)
   retention    Decimal        @default(0) @db.Decimal(14, 2)
   advanceAmort Decimal        @default(0) @db.Decimal(14, 2) // amortización de anticipo
   netAmount    Decimal        @db.Decimal(14, 2) // gross - retention - advanceAmort
