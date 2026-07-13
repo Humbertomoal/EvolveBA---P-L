@@ -114,17 +114,29 @@ export default function UsuariosView({
     setFormError(null);
     setCargando(true);
 
+    if (!modal.open) { setCargando(false); return; }
+
+    // En "editar", dejar el campo de contraseña en blanco significa "no
+    // cambiarla" (se omite del payload) — no "borrarla". Solo se manda un
+    // valor explícito cuando el admin captura una contraseña nueva, o al
+    // cambiar a Microsoft (ahí sí se limpia a propósito, la sesión pasa a
+    // autenticarse por SSO).
+    const password =
+      modal.modo === "crear"
+        ? (formMetodo === "password" ? formPassword.trim() : null)
+        : formMetodo === "microsoft"
+          ? null
+          : formPassword.trim() || undefined;
+
     const datos = {
       nombre: formNombre,
       apellido: formApellido,
       email: formEmail,
       rolId: formRolId,
       activo: formActivo,
-      password: formMetodo === "password" ? (formPassword.trim() || null) : null,
+      password,
       microsoftId: formMetodo === "microsoft" ? formEmail.trim() : null,
     };
-
-    if (!modal.open) { setCargando(false); return; }
 
     let result: { ok: boolean; error?: string };
     if (modal.modo === "crear") {

@@ -1,7 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+
+// Mismo cost factor que usuariosSeed.ts y cambiar-password/actions.ts —
+// nunca se guarda una contraseña en texto plano.
+const BCRYPT_COST = 12;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
@@ -39,13 +44,14 @@ export async function crearUsuarioAction(
   datos: UsuarioInput
 ): Promise<{ ok: boolean; error?: string }> {
   try {
+    const passwordTrim = datos.password?.trim() || null;
+    const passwordHash = passwordTrim ? await bcrypt.hash(passwordTrim, BCRYPT_COST) : null;
     await db.usuario.create({
       data: {
         nombre: datos.nombre.trim(),
         apellido: datos.apellido.trim(),
         email: datos.email.trim().toLowerCase(),
-        // Passwords stored as-is for this MVP — hash with bcrypt before production
-        password: datos.password?.trim() || null,
+        password: passwordHash,
         microsoftId: datos.microsoftId?.trim() || null,
         rolId: datos.rolId,
         activo: datos.activo ?? true,
@@ -66,13 +72,18 @@ export async function actualizarUsuarioAction(
   datos: Partial<UsuarioInput>
 ): Promise<{ ok: boolean; error?: string }> {
   try {
+    let passwordUpdate: { password?: string | null } = {};
+    if (datos.password !== undefined) {
+      const passwordTrim = datos.password?.trim() || null;
+      passwordUpdate = { password: passwordTrim ? await bcrypt.hash(passwordTrim, BCRYPT_COST) : null };
+    }
     await db.usuario.update({
       where: { id },
       data: {
         ...(datos.nombre !== undefined ? { nombre: datos.nombre.trim() } : {}),
         ...(datos.apellido !== undefined ? { apellido: datos.apellido.trim() } : {}),
         ...(datos.email !== undefined ? { email: datos.email.trim().toLowerCase() } : {}),
-        ...(datos.password !== undefined ? { password: datos.password?.trim() || null } : {}),
+        ...passwordUpdate,
         ...(datos.microsoftId !== undefined ? { microsoftId: datos.microsoftId?.trim() || null } : {}),
         ...(datos.rolId !== undefined ? { rolId: datos.rolId } : {}),
         ...(datos.activo !== undefined ? { activo: datos.activo } : {}),

@@ -657,12 +657,49 @@ módulo no tenga `ver` — doble candado, igual que "Nómina Operativa" en costo
   funcional; como Gerente, `/presupuestos` sigue el mismo patrón reusando
   `PresupuestoTab`, y `/estimaciones` conserva la lista de cobranza cruzada
   intacta.
-- **Hallazgo, no corregido (fuera de alcance de esta fase, reportado al
-  usuario):** `crearUsuarioAction`/`actualizarUsuarioAction`
-  (`usuariosActions.ts`) guardan `Usuario.password` tal cual viene del
-  formulario ("Passwords stored as-is for this MVP" dice el comentario
+- **Bug de seguridad corregido de inmediato tras reportarlo (prioridad sobre
+  el resto de la fase, a petición del usuario — bloqueaba dar de alta a
+  cualquier persona real).** `crearUsuarioAction`/`actualizarUsuarioAction`
+  (`usuariosActions.ts`) guardaban `Usuario.password` tal cual venía del
+  formulario ("Passwords stored as-is for this MVP" decía el comentario
   original), pero el login (`app/login/actions.ts`) compara con
-  `bcrypt.compare`. Cualquier usuario creado o con contraseña cambiada desde
-  Configuración → Usuarios queda con una contraseña que nunca podrá volver a
-  iniciar sesión (bcrypt.compare falla contra texto plano). Preexistente,
-  no tocado — no estaba en el alcance de esta fase.
+  `bcrypt.compare` — todo usuario creado o con contraseña cambiada desde
+  Configuración → Usuarios quedaba con una contraseña que nunca podría volver
+  a iniciar sesión. Se corrigió hasheando con `bcrypt.hash(pwd, 12)` (mismo
+  cost factor que `usuariosSeed.ts` y `cambiar-password/actions.ts`, la única
+  otra ruta de escritura de contraseña del sistema, que ya estaba correcta)
+  antes de escribir en BD, en ambas acciones.
+- **Segundo bug encontrado en el mismo archivo mientras se auditaba "todos
+  los puntos donde se escribe una contraseña" (pedido explícito del
+  usuario).** `actualizarUsuarioAction` recibía `password: null` en CADA
+  edición donde el campo de contraseña se dejaba en blanco (el objeto
+  `datos` en `UsuariosView.tsx` siempre incluía la llave, nunca la omitía) —
+  cualquier edición rutinaria de un usuario (cambiar rol, activar/desactivar)
+  sin retecelar la contraseña la borraba silenciosamente, dejando a esa
+  persona sin poder entrar. Se corrigió en `UsuariosView.tsx`: en modo
+  "editar", dejar el campo en blanco ahora omite `password` del payload
+  (`undefined` = "no tocar"), y solo se manda un valor explícito al escribir
+  una contraseña nueva o al cambiar a Microsoft SSO (ahí sí se limpia a
+  propósito). `actualizarUsuarioAction` ya distinguía `undefined` de `null`
+  correctamente — el bug estaba en qué le mandaba el caller, no en la acción.
+- **Auditoría de escritura de contraseñas (pedida explícitamente):** el
+  único otro punto que escribe `Usuario.password` es
+  `cambiar-password/actions.ts` (`cambiarPasswordAction`), que ya hasheaba
+  correctamente con cost 12 desde antes — sin cambios.
+  `generarPasswordTemporal.ts` existe (generador criptográficamente seguro
+  de contraseñas temporales, con un comentario que promete hasheo con
+  bcrypt) pero no está conectado a ningún flujo real todavía — código muerto,
+  no es una ruta de escritura.
+- **Migración de datos existentes:** se auditó la BD completa (1 usuario con
+  password, el admin sembrado por `usuariosSeed.ts`) — su hash ya era bcrypt
+  válido, cero usuarios en texto plano encontrados. No hizo falta hashear ni
+  resetear nada; el bug existía en el código pero nadie había alcanzado a
+  crear un usuario con él todavía.
+- Verificado con Playwright end-to-end contra el dev server real: login
+  como Admin → Configuración → Usuarios → crear usuario con rol Capturista y
+  contraseña → toast de éxito → logout → login con ese email/contraseña
+  nuevos → entra correctamente (aterriza en `/cambiar-password` por
+  `primerAcceso=true`, el flujo de primer acceso ya existente, no
+  `/login` de vuelta). Confirmado además por consulta directa a BD que el
+  campo `password` guardado tiene el formato `$2b$12$...` (bcrypt real, no
+  texto plano). Usuario de prueba borrado al terminar.
